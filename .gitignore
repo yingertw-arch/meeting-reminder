@@ -1,0 +1,6 @@
+dist/
+build/
+__pycache__/
+*.pyc
+reminders.json
+start_reminder.vbs
