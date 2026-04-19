@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>作業缺交追蹤</title>
+  <style>
+    :root {
+      /* ── Vivid accent palette ── */
+      --accent: #0055ff;        /* electric blue */
+      --accent-dark: #0040cc;
+      --accent-light: #e8f0ff;
+      --danger: #ff2d55;        /* hot pink-red */
+      --danger-light: #fff0f3;
+      --warning: #ff6b00;       /* vivid orange */
+      --warning-light: #fff4ec;
+      --success: #00c853;       /* bright green */
+      --success-light: #e8fff1;
+      /* ── Neutrals ── */
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --text: #0a0a0a;
+      --text-muted: #7a7a7a;
+      --border: #e8e8e8;
+      --border-strong: #c8c8c8;
+      --radius: 10px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+      --shadow: 0 1px 6px rgba(0,0,0,0.08);
+      /* compat */
+      --primary: #0055ff;
+      --primary-dark: #0040cc;
+      --primary-light: #e8f0ff;
+      --card: #ffffff;
+      --gray: #7a7a7a;
+      --gray-light: #f2f2f2;
+      --shadow-md: 0 2px 10px rgba(0,0,0,0.09);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+      background: #ffffff;
+      background-image: radial-gradient(circle, #d8d8d8 1px, transparent 1px);
+      background-size: 22px 22px;
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 72px;
+    }
+
+    /* ── Header ── */
+    .app-header {
+      background: #ffffff;
+      color: #0a0a0a;
+      padding: 14px 20px 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 2px solid #0a0a0a;
+    }
+    .app-header h1 {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .app-header p {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 1px;
+      font-weight: 400;
+    }
+
+    /* ── Bottom Tab Bar ── */
+    .tab-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #ffffff;
+      border-top: 2px solid #0a0a0a;
+      display: flex;
+      z-index: 200;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .tab-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 9px 4px 7px;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s;
+      letter-spacing: 0.2px;
+    }
+    .tab-btn.active { color: var(--accent); }
+    .tab-btn .icon { font-size: 20px; }
+
+    /* ── Tab Panels ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 2px solid #0a0a0a;
+      margin: 10px 14px;
+      overflow: hidden;
+      box-shadow: 3px 3px 0px #0a0a0a;
+    }
+    .card-header {
+      padding: 13px 16px 11px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-header h2 { font-size: 14px; font-weight: 700; }
+    .card-body { padding: 16px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 8px 15px;
+      border-radius: 7px;
+      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.12s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); opacity: 0.85; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-dark); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+    }
+    .btn-ghost:hover { background: var(--bg); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+    .btn-full { width: 100%; justify-content: center; }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 7px;
+      font-size: 15px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+
+    /* ── Seat Tags ── */
+    .seat-input-wrap {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .seat-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 8px;
+      min-height: 30px;
+    }
+    .seat-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--accent-light);
+      color: var(--accent-dark);
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .seat-tag .remove-tag {
+      cursor: pointer;
+      opacity: 0.5;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .seat-tag .remove-tag:hover { opacity: 1; }
+
+    /* ── Assignment List ── */
+    .assignment-item {
+      background: var(--surface);
+      border: 2px solid #0a0a0a;
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      overflow: hidden;
+      box-shadow: 3px 3px 0px #0a0a0a;
+      transition: box-shadow 0.1s, transform 0.1s;
+    }
+    .assignment-item:active { box-shadow: 1px 1px 0px #0a0a0a; transform: translate(2px,2px); }
+    .assignment-item.overdue { border-color: var(--danger); box-shadow: 3px 3px 0px var(--danger); }
+    .assignment-item.overdue-warn { border-color: var(--warning); box-shadow: 3px 3px 0px var(--warning); }
+
+    .assignment-header {
+      padding: 13px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+      background: var(--surface);
+    }
+    .assignment-main { flex: 1; min-width: 0; }
+    .assignment-name {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .assignment-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-danger { background: var(--danger-light); color: var(--danger); }
+    .badge-warning { background: var(--warning-light); color: var(--warning); }
+    .badge-success { background: var(--success-light); color: var(--success); }
+    .badge-primary { background: var(--accent-light); color: var(--accent-dark); }
+    .badge-gray { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .assignment-detail {
+      display: none;
+      padding: 12px 14px 14px;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .assignment-item.expanded .assignment-detail { display: block; }
+    .assignment-item.expanded .chevron { transform: rotate(180deg); }
+    .chevron { transition: transform 0.2s; color: var(--text-muted); font-size: 16px; }
+
+    .missing-seats-display {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 12px;
+    }
+    .missing-seat-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--danger-light);
+      color: var(--danger);
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .missing-seat-chip .chip-rm {
+      cursor: pointer;
+      opacity: 0.5;
+      font-size: 13px;
+    }
+    .missing-seat-chip .chip-rm:hover { opacity: 1; }
+
+    .action-row { display: flex; gap: 7px; flex-wrap: wrap; }
+
+    /* ── Class Overview ── */
+    .overview-controls {
+      padding: 12px 14px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .overview-controls label {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 500;
+    }
+    .overview-controls input[type=number] {
+      width: 56px;
+      padding: 5px 8px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .seat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+      gap: 7px;
+      padding: 4px 14px 16px;
+    }
+    .seat-cell {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.1s;
+      position: relative;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+    .seat-cell:active { transform: scale(0.9); }
+    .seat-cell.ok {
+      background: var(--surface);
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+    .seat-cell.missing-some {
+      background: var(--warning-light);
+      color: var(--warning);
+      border-color: #fde68a;
+    }
+    .seat-cell.missing-many {
+      background: var(--danger-light);
+      color: var(--danger);
+      border-color: #fecaca;
+    }
+    .seat-cell .count-dot {
+      position: absolute;
+      top: 3px; right: 4px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--danger);
+      color: white;
+      font-size: 8px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .overview-legend {
+      display: flex;
+      gap: 14px;
+      padding: 4px 14px 0;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+    /* ── Voice Panel ── */
+    .voice-panel { text-align: center; padding: 24px 16px; }
+    .mic-btn {
+      width: 88px; height: 88px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-size: 38px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 16px rgba(79,70,229,0.35);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 14px;
+    }
+    .mic-btn.listening {
+      background: var(--danger);
+      animation: pulse 1.2s infinite;
+      box-shadow: 0 4px 16px rgba(229,72,60,0.4);
+    }
+    .mic-btn:active { transform: scale(0.94); }
+
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(229,72,60,0.35); }
+      70%  { box-shadow: 0 0 0 16px rgba(229,72,60,0); }
+      100% { box-shadow: 0 0 0 0 rgba(229,72,60,0); }
+    }
+
+    .voice-status { font-size: 13px; color: var(--text-muted); min-height: 20px; margin-bottom: 10px; }
+    .voice-result {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 15px;
+      min-height: 50px;
+      margin: 0 auto 14px;
+      max-width: 480px;
+      color: var(--text);
+      line-height: 1.6;
+      text-align: left;
+    }
+    .voice-parsed {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      justify-content: center;
+      margin: 8px auto 14px;
+      max-width: 480px;
+    }
+    .voice-parsed .seat-tag { background: var(--success-light); color: var(--success); }
+
+    .voice-select-assignment { max-width: 480px; margin: 0 auto 14px; }
+    .voice-select-assignment label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-muted);
+      display: block; margin-bottom: 6px; text-align: left;
+    }
+    .voice-select-assignment select {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 7px; font-size: 14px; background: var(--surface);
+    }
+    .manual-input-row { display: flex; gap: 8px; max-width: 480px; margin: 0 auto; }
+    .manual-input-row input {
+      flex: 1; padding: 10px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 7px; font-size: 14px;
+    }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(2px);
+      z-index: 500;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: 16px 16px 0 0;
+      width: 100%;
+      max-width: 560px;
+      max-height: 88vh;
+      overflow-y: auto;
+      animation: slideUp 0.22s ease-out;
+    }
+    @media (min-width: 600px) {
+      .modal-backdrop { align-items: center; }
+      .modal { border-radius: 12px; max-width: 500px; }
+    }
+    @keyframes slideUp {
+      from { transform: translateY(24px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-header h3 { font-size: 16px; font-weight: 700; }
+    .modal-close {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: transparent;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+    }
+    .modal-close:hover { background: var(--bg); }
+    .modal-body { padding: 20px; }
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      display: flex; gap: 8px; justify-content: flex-end;
+    }
+
+    /* ── Alert Banner ── */
+    .alert-banner {
+      margin: 8px 14px 0;
+      padding: 9px 13px;
+      border-radius: 8px;
+      font-size: 12px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .alert-danger { background: var(--danger-light); color: var(--danger); border: 1px solid #fecaca; }
+    .alert-warning { background: var(--warning-light); color: var(--warning); border: 1px solid #fde68a; }
+
+    /* ── Section Header ── */
+    .section-header {
+      padding: 14px 14px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    /* ── Empty State ── */
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+    .empty-state p { font-size: 13px; line-height: 1.6; }
+
+    /* ── Projector Mode ── */
+    #projector-mode {
+      display: none;
+      position: fixed; inset: 0;
+      background: #0d0d0d;
+      color: white;
+      z-index: 1000;
+      overflow-y: auto;
+      padding: 28px;
+    }
+    #projector-mode.open { display: block; }
+    .proj-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #222; padding-bottom: 16px;
+    }
+    .proj-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .proj-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+      gap: 8px; margin-bottom: 32px;
+    }
+    .proj-seat {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.1s;
+      border: 1px solid transparent;
+    }
+    .proj-seat:active { transform: scale(0.9); }
+    .proj-seat.proj-ok  { background: #1a1a1a; border-color: #333; color: #666; }
+    .proj-seat.proj-warn { background: #2d1f00; border-color: #5a3e00; color: #fbbf24; }
+    .proj-seat.proj-bad  { background: #2a0a0a; border-color: #5a1a1a; color: var(--danger); }
+    .proj-seat .proj-count { font-size: 10px; font-weight: 600; opacity: 0.7; }
+
+    .proj-assignments { margin-top: 8px; }
+    .proj-assign-card {
+      background: #161616;
+      border: 1px solid #262626;
+      border-radius: 10px; padding: 16px; margin-bottom: 10px;
+    }
+    .proj-assign-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: #e5e5e5; }
+    .proj-assign-card .seats { display: flex; flex-wrap: wrap; gap: 5px; }
+    .proj-assign-card .seat-chip {
+      background: var(--danger);
+      color: white; padding: 3px 9px;
+      border-radius: 5px; font-size: 13px; font-weight: 600;
+    }
+    .proj-overdue-badge {
+      background: var(--danger); color: white;
+      padding: 2px 7px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; margin-left: 8px;
+    }
+
+    /* ── Desktop Sidebar ── */
+    @media (min-width: 768px) {
+      body { padding-bottom: 0; }
+      .tab-bar { display: none; }
+      body { display: flex; flex-direction: column; }
+      .app-content { display: flex; flex: 1; }
+      .desktop-sidebar {
+        display: flex !important;
+        flex-direction: column;
+        width: 200px; min-width: 200px;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        padding: 12px 8px;
+      }
+      .desktop-sidebar .nav-item {
+        display: flex; align-items: center; gap: 9px;
+        padding: 9px 12px; border-radius: 8px;
+        cursor: pointer; color: var(--text-muted);
+        font-size: 13px; font-weight: 500;
+        margin-bottom: 2px; transition: all 0.12s;
+        border: none; background: none; width: 100%; text-align: left;
+      }
+      .desktop-sidebar .nav-item.active {
+        background: var(--accent-light); color: var(--accent-dark); font-weight: 600;
+      }
+      .desktop-sidebar .nav-item:hover:not(.active) { background: var(--bg); }
+      .desktop-sidebar .nav-icon { font-size: 16px; }
+      .main-content { flex: 1; overflow-y: auto; max-width: 700px; }
+    }
+    .desktop-sidebar { display: none; }
+    .app-content { display: block; }
+
+    /* ── Mode Toggle ── */
+    .mode-toggle {
+      display: flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px; gap: 3px; margin-bottom: 12px;
+    }
+    .mode-toggle-btn {
+      flex: 1; padding: 7px 8px; border: none;
+      border-radius: 6px; font-size: 12px; font-weight: 500;
+      cursor: pointer; background: transparent;
+      color: var(--text-muted); transition: all 0.15s;
+      text-align: center; line-height: 1.3;
+    }
+    .mode-toggle-btn.active {
+      background: var(--surface); color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .mode-toggle-btn.active.inverse-active {
+      background: #fffbeb; color: var(--warning);
+    }
+    .inverse-hint {
+      background: #fffbeb; border: 1px solid #fde68a;
+      border-radius: 7px; padding: 8px 12px;
+      font-size: 12px; color: var(--warning); margin-bottom: 10px; display: none;
+    }
+    .inverse-hint.show { display: block; }
+
+    /* ── Toast ── */
+    .toast-container {
+      position: fixed; top: 64px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 999; display: flex;
+      flex-direction: column; gap: 6px;
+      align-items: center; pointer-events: none;
+    }
+    .toast {
+      background: var(--text); color: white;
+      padding: 9px 16px; border-radius: 8px;
+      font-size: 13px; animation: toastIn 0.2s ease-out;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      white-space: nowrap;
+    }
+    .toast.success-toast { background: var(--success); }
+    .toast.error-toast { background: var(--danger); }
+    @keyframes toastIn {
+      from { transform: translateY(-8px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="app-header" style="display:flex;align-items:center;justify-content:space-between;">
+  <div>
+    <h1>📚 作業缺交追蹤</h1>
+    <p id="today-display"></p>
+  </div>
+  <button onclick="openSetupModal()" style="background:transparent;border:2px solid #0a0a0a;color:#0a0a0a;padding:5px 12px;border-radius:7px;font-size:12px;cursor:pointer;font-weight:700;box-shadow:2px 2px 0 #0a0a0a;letter-spacing:0.2px;">⚙️ 班級設定</button>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Main Layout -->
+<div class="app-content">
+  <!-- Desktop Sidebar -->
+  <div class="desktop-sidebar" id="desktop-sidebar">
+    <button class="nav-item active" onclick="switchTab('manage')" data-tab="manage">
+      <span class="nav-icon">📋</span> 管理作業
+    </button>
+    <button class="nav-item" onclick="switchTab('overview')" data-tab="overview">
+      <span class="nav-icon">👥</span> 班級總覽
+    </button>
+    <button class="nav-item" onclick="switchTab('voice')" data-tab="voice">
+      <span class="nav-icon">🎙️</span> 訂正確認
+    </button>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 8px;">
+    <button class="nav-item" onclick="openProjectorMode()">
+      <span class="nav-icon">📺</span> 投影模式
+    </button>
+  </div>
+
+  <div class="main-content">
+    <!-- ══════════════════ TAB: 管理 ══════════════════ -->
+    <div class="tab-panel active" id="tab-manage">
+      <div id="overdue-alerts"></div>
+
+      <div style="padding:12px 16px 0;display:flex;justify-content:space-between;align-items:center;">
+        <div class="section-header" style="padding:0;">作業清單</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddModal()">＋ 新增作業</button>
+      </div>
+
+      <!-- Quick Voice Correction Card -->
+      <div class="card" style="margin-top:8px;">
+        <div class="card-header" style="cursor:pointer;" onclick="toggleQuickVoice()">
+          <h2>🎙️ 快速訂正確認</h2>
+          <span id="quick-voice-chevron" style="color:var(--text-muted);font-size:18px;transition:transform 0.2s;">⌄</span>
+        </div>
+        <div id="quick-voice-body" style="display:none;padding:16px;">
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>選擇作業</label>
+            <select id="quick-voice-select" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;background:white;">
+              <option value="">-- 請選擇作業 --</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button class="mic-btn" id="quick-mic-btn" onclick="toggleQuickVoice_mic()" style="width:60px;height:60px;font-size:26px;flex-shrink:0;">🎙️</button>
+            <div style="flex:1;min-width:160px;">
+              <div id="quick-voice-status" style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">點麥克風開始語音輸入</div>
+              <div id="quick-voice-result" style="background:var(--gray-light);border-radius:8px;padding:8px 10px;font-size:14px;min-height:36px;color:var(--text);">—</div>
+            </div>
+          </div>
+          <div id="quick-voice-parsed" style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;"></div>
+          <div id="quick-confirm-area" style="display:none;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-success btn-sm" onclick="confirmQuickVoice()">✔ 確認完成</button>
+              <button class="btn btn-ghost btn-sm" onclick="clearQuickVoice()">✕ 清除</button>
+            </div>
+          </div>
+          <hr style="border:none;border-top:1px solid var(--border);margin:12px 0 10px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="quick-manual-input" placeholder="手動輸入座號，如：3, 5, 12"
+              style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;"
+              onkeydown="if(event.key==='Enter')quickManualSubmit()">
+            <button class="btn btn-primary btn-sm" onclick="quickManualSubmit()">確認</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="assignment-list" style="padding:8px 16px 16px;"></div>
+    </div>
+
+    <!-- ══════════════════ TAB: 班級總覽 ══════════════════ -->
+    <div class="tab-panel" id="tab-overview">
+      <div class="overview-controls">
+        <label>
+          全班人數
+          <input type="number" id="class-size-input" value="35" min="1" max="60" onchange="renderOverview()">
+        </label>
+        <button class="btn btn-ghost btn-sm" onclick="openProjectorMode()">📺 投影模式</button>
+      </div>
+
+      <div class="overview-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--success-light);border:2px solid #86efac"></div>無缺交</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--warning-light);border:2px solid #fcd34d"></div>缺1-2項</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--danger-light);border:2px solid #fca5a5"></div>缺3+項</div>
+      </div>
+
+      <div class="seat-grid" id="seat-grid"></div>
+    </div>
+
+    <!-- ══════════════════ TAB: 訂正確認 ══════════════════ -->
+    <div class="tab-panel" id="tab-voice">
+      <div class="voice-panel">
+        <div class="voice-select-assignment">
+          <label>選擇要訂正確認的作業項目</label>
+          <select id="voice-assignment-select">
+            <option value="">-- 請選擇作業 --</option>
+          </select>
+        </div>
+
+        <button class="mic-btn" id="mic-btn" onclick="toggleVoice()">🎙️</button>
+        <div class="voice-status" id="voice-status">點擊麥克風開始語音輸入</div>
+        <div class="voice-result" id="voice-result">語音識別結果會顯示在這裡...</div>
+
+        <div id="voice-parsed" class="voice-parsed"></div>
+
+        <div id="voice-confirm-area" style="display:none;max-width:480px;margin:0 auto;">
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">以上座號將標記為已訂正完成，確認嗎？</p>
+          <div style="display:flex;gap:10px;justify-content:center;">
+            <button class="btn btn-success" onclick="confirmVoiceSubmission()">✔ 確認完成</button>
+            <button class="btn btn-ghost" onclick="clearVoice()">✕ 清除重來</button>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:20px 0;">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">或手動輸入座號（逗號分隔）</p>
+        <div class="manual-input-row">
+          <input type="text" id="manual-seat-input" placeholder="例：3, 5, 12, 20">
+          <button class="btn btn-primary" onclick="manualSubmit()">確認</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Tab Bar (Mobile) -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('manage')" data-tab="manage">
+    <span class="icon">📋</span>管理
+  </button>
+  <button class="tab-btn" onclick="switchTab('overview')" data-tab="overview">
+    <span class="icon">👥</span>總覽
+  </button>
+  <button class="tab-btn" onclick="switchTab('voice')" data-tab="voice">
+    <span class="icon">🎙️</span>訂正
+  </button>
+  <button class="tab-btn" onclick="openProjectorMode()">
+    <span class="icon">📺</span>投影
+  </button>
+</div>
+
+<!-- ══════════════════ ADD/EDIT MODAL ══════════════════ -->
+<div class="modal-backdrop" id="add-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">新增作業</h3>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>作業名稱 *</label>
+        <input type="text" id="form-name" placeholder="例：數學第三單元習作">
+      </div>
+      <div class="form-group">
+        <label>繳交截止日期 *</label>
+        <input type="date" id="form-date">
+      </div>
+      <div class="form-group">
+        <label id="seat-section-label">座號設定</label>
+        <div class="mode-toggle">
+          <button class="mode-toggle-btn active" id="mode-btn-normal" onclick="setSeatMode('normal')">
+            ✏️ 輸入缺交座號
+          </button>
+          <button class="mode-toggle-btn" id="mode-btn-inverse" onclick="setSeatMode('inverse')">
+            ⚡ 只有這些人對<br><span style="font-size:10px;opacity:0.8;">（其餘全部待訂正）</span>
+          </button>
+        </div>
+        <div class="inverse-hint" id="inverse-hint">
+          💡 輸入<strong>答對的座號</strong>，系統會自動將其他座號列入待訂正名單（依全班人數 <span id="inverse-size-hint">35</span> 人計算）
+        </div>
+        <div class="seat-input-wrap">
+          <input type="number" id="seat-single-input" placeholder="輸入座號" min="1" max="60"
+            style="flex:1;min-width:80px"
+            onkeydown="if(event.key==='Enter')addSeatTag()">
+          <button class="btn btn-primary btn-sm" onclick="addSeatTag()">加入</button>
+          <button class="btn btn-ghost btn-sm" onclick="addBatchSeats()">批次</button>
+        </div>
+        <div class="seat-tags" id="seat-tags"></div>
+        <p id="seat-hint-text" style="font-size:12px;color:var(--text-muted);margin-top:6px;">點「批次」可一次輸入多個座號，如：1-5, 8, 10-15</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAddModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveAssignment()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ SETUP MODAL ══════════════════ -->
+<div class="modal-backdrop" id="setup-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>⚙️ 班級座號設定</h3>
+      <button class="modal-close" onclick="closeSetupModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;color:var(--text-muted);margin-bottom:14px;">設定全班有效座號。轉學或不存在的座號請點擊標記為灰色，系統將不會計入。</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;flex:1;min-width:120px;">
+          <label>最大座號</label>
+          <input type="number" id="setup-max-seat" value="35" min="1" max="60"
+            style="width:80px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;text-align:center;">
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="generateSetupGrid()" style="margin-top:18px;">產生座號表</button>
+      </div>
+      <p style="font-size:12px;background:var(--warning-light);color:#92400e;padding:8px 10px;border-radius:8px;margin-bottom:12px;">
+        💡 點擊座號切換狀態：<strong style="color:var(--success)">綠色 = 有效</strong>　<strong style="color:var(--text-muted)">灰色 = 轉學/不存在</strong>
+      </p>
+      <div id="setup-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px;"></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:12px;" id="setup-count-hint"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeSetupModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveRoster()">儲存設定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ BATCH SEAT MODAL ══════════════════ -->
+<div class="modal-backdrop" id="batch-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>批次輸入座號</h3>
+      <button class="modal-close" onclick="closeBatchModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>輸入座號（支援範圍與逗號）</label>
+        <input type="text" id="batch-input" placeholder="例：1-5, 8, 10, 15-20">
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);">可用格式：<br>
+        • 逗號分隔：1, 3, 5, 12<br>
+        • 範圍：1-10<br>
+        • 混合：1-5, 8, 10-15
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeBatchModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmBatch()">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ STUDENT DETAIL MODAL ══════════════════ -->
+<div class="modal-backdrop" id="student-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="student-modal-title">座號 XX 的缺交作業</h3>
+      <button class="modal-close" onclick="closeStudentModal()">✕</button>
+    </div>
+    <div class="modal-body" id="student-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeStudentModal()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PROJECTOR MODE ══════════════════ -->
+<div id="projector-mode">
+  <div class="proj-header">
+    <h1>📚 待補作業一覽</h1>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <span id="proj-date" style="font-size:14px;opacity:0.6;"></span>
+      <button class="btn btn-ghost btn-sm" onclick="closeProjectorMode()" style="color:white;background:rgba(255,255,255,0.15);">✕ 離開</button>
+    </div>
+  </div>
+  <div style="margin-bottom:12px;font-size:13px;opacity:0.5;">點擊座號查看該生所有缺交項目</div>
+  <div class="proj-grid" id="proj-grid"></div>
+  <div class="proj-assignments" id="proj-assignments"></div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+// ════════════════════════════════════════════
+//  Firebase 初始化
+// ════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyDTT6UzOWRk_oqa8TXm3N1DK-1HiouKjxg",
+  authDomain: "homework-tracker-5c6d3.firebaseapp.com",
+  projectId: "homework-tracker-5c6d3",
+  storageBucket: "homework-tracker-5c6d3.firebasestorage.app",
+  messagingSenderId: "133239689183",
+  appId: "1:133239689183:web:196488edd609c4fa663e6a"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ════════════════════════════════════════════
+//  資料模型
+// ════════════════════════════════════════════
+let assignments = [];
+let editingId = null;
+let currentSeatTags = [];
+let recognizing = false;
+let recognition = null;
+let parsedSeats = [];
+
+let classRoster = []; // active seat numbers
+let _syncUnsubscribers = []; // Firestore listeners
+
+// ── 寫入 Firestore ──
+function save() {
+  db.collection('data').doc('assignments').set({
+    list: assignments,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(e => showToast('儲存失敗：' + e.message, 'error'));
+}
+
+function saveRosterToStorage() {
+  db.collection('settings').doc('roster').set({
+    seats: classRoster,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(e => showToast('設定儲存失敗：' + e.message, 'error'));
+}
+
+// ── 即時同步監聽 ──
+function setupRealtimeSync() {
+  showLoadingState(true);
+
+  // 監聽作業清單
+  const unsubA = db.collection('data').doc('assignments').onSnapshot(doc => {
+    assignments = doc.exists ? (doc.data().list || []) : [];
+    renderAssignmentList();
+    showLoadingState(false);
+
+    // 第一次使用：顯示提示條
+    if (!classRoster.length) {
+      const existing = document.getElementById('first-run-banner');
+      if (!existing) {
+        const banner = document.createElement('div');
+        banner.id = 'first-run-banner';
+        banner.style.cssText = 'background:#fef3c7;border:1.5px solid #fcd34d;color:#92400e;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;';
+        banner.innerHTML = `<span>👋 歡迎！請先點右上角「⚙️ 班級設定」設定全班座號（可排除轉學生），設定後即可開始使用。</span>
+          <button onclick="openSetupModal();this.closest('#first-run-banner').remove()" style="background:#d97706;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;white-space:nowrap;flex-shrink:0;">立即設定</button>`;
+        document.querySelector('.app-header').after(banner);
+      }
+    } else {
+      const b = document.getElementById('first-run-banner');
+      if (b) b.remove();
+    }
+  }, err => {
+    showLoadingState(false);
+    showToast('無法連線至資料庫：' + err.message, 'error');
+  });
+
+  // 監聽班級名冊
+  const unsubR = db.collection('settings').doc('roster').onSnapshot(doc => {
+    if (doc.exists) {
+      classRoster = doc.data().seats || [];
+      if (classRoster.length) {
+        document.getElementById('class-size-input').value = Math.max(...classRoster);
+        const b = document.getElementById('first-run-banner');
+        if (b) b.remove();
+      }
+    }
+  });
+
+  _syncUnsubscribers = [unsubA, unsubR];
+}
+
+function getClassSize() {
+  return parseInt(document.getElementById('class-size-input').value) || 35;
+}
+// 取得有效座號列表（以 classRoster 為主，若未設定則用 1..N）
+function getActiveRoster() {
+  if (classRoster.length) return [...classRoster];
+  const n = getClassSize();
+  return Array.from({length: n}, (_, i) => i + 1);
+}
+
+// ════════════════════════════════════════════
+//  日期工具
+// ════════════════════════════════════════════
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+function daysOverdue(dateStr) {
+  const due = new Date(dateStr);
+  const now = new Date();
+  due.setHours(0,0,0,0); now.setHours(0,0,0,0);
+  return Math.floor((now - due) / 86400000);
+}
+function fmtDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+function fmtDateFull(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+}
+
+// ════════════════════════════════════════════
+//  Tab 切換
+// ════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-item[data-tab]').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('[data-tab="' + name + '"]').forEach(b => b.classList.add('active'));
+
+  if (name === 'overview') renderOverview();
+  if (name === 'voice') renderVoiceAssignmentSelect();
+}
+
+// ════════════════════════════════════════════
+//  作業管理
+// ════════════════════════════════════════════
+function renderAssignmentList() {
+  renderQuickVoiceSelect();
+  renderOverdueAlerts();
+  const container = document.getElementById('assignment-list');
+  if (!assignments.length) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">📝</div><p>尚未新增任何作業<br>點「新增作業」開始使用</p></div>`;
+    return;
+  }
+  // sort by date desc
+  const sorted = [...assignments].sort((a, b) => b.dueDate.localeCompare(a.dueDate));
+  container.innerHTML = sorted.map(a => renderAssignmentItem(a)).join('');
+}
+
+function renderAssignmentItem(a) {
+  const days = daysOverdue(a.dueDate);
+  const missing = a.missingSeatNums.length;
+  let overdueClass = '', overdueBadge = '';
+  if (days > 3) {
+    overdueClass = 'overdue';
+    overdueBadge = `<span class="badge badge-danger">⚠ 逾期${days}天</span>`;
+  } else if (days > 0) {
+    overdueClass = 'overdue-warn';
+    overdueBadge = `<span class="badge badge-warning">逾期${days}天</span>`;
+  }
+  const statusBadge = missing === 0
+    ? `<span class="badge badge-success">✓ 全繳</span>`
+    : `<span class="badge badge-danger">${missing}人未繳</span>`;
+
+  const seatsHtml = a.missingSeatNums.length
+    ? a.missingSeatNums.sort((x,y)=>x-y).map(n =>
+        `<span class="missing-seat-chip">${n}號<span class="chip-rm" onclick="event.stopPropagation();removeSeat('${a.id}',${n})">✕</span></span>`
+      ).join('')
+    : `<span style="color:var(--text-muted);font-size:13px;">目前無缺交 🎉</span>`;
+
+  return `
+  <div class="assignment-item ${overdueClass}" id="item-${a.id}">
+    <div class="assignment-header" onclick="toggleItem('${a.id}')">
+      <div class="assignment-main">
+        <div class="assignment-name">${escHtml(a.name)}</div>
+        <div class="assignment-meta">
+          <span>📅 ${fmtDateFull(a.dueDate)}</span>
+          ${statusBadge}
+          ${overdueBadge}
+        </div>
+      </div>
+      <span class="chevron">⌄</span>
+    </div>
+    <div class="assignment-detail">
+      <div class="missing-seats-display">${seatsHtml}</div>
+      <div class="action-row">
+        <button class="btn btn-primary btn-sm" onclick="openEditModal('${a.id}')">✏ 編輯</button>
+        <button class="btn btn-ghost btn-sm" onclick="markAllDone('${a.id}')">✓ 全部完成</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAssignment('${a.id}')">🗑 刪除</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleItem(id) {
+  document.getElementById('item-' + id).classList.toggle('expanded');
+}
+
+function renderOverdueAlerts() {
+  const container = document.getElementById('overdue-alerts');
+  const serious = assignments.filter(a => daysOverdue(a.dueDate) > 3 && a.missingSeatNums.length > 0);
+  if (!serious.length) { container.innerHTML = ''; return; }
+  container.innerHTML = serious.map(a =>
+    `<div class="alert-banner alert-danger">⚠ <strong>${escHtml(a.name)}</strong> 已逾期 ${daysOverdue(a.dueDate)} 天，仍有 ${a.missingSeatNums.length} 人未繳！</div>`
+  ).join('');
+}
+
+function removeSeat(id, num) {
+  const a = assignments.find(x => x.id === id);
+  if (!a) return;
+  a.missingSeatNums = a.missingSeatNums.filter(n => n !== num);
+  save();
+  renderAssignmentList();
+  showToast(`已移除座號 ${num}`, 'success');
+}
+
+function markAllDone(id) {
+  const a = assignments.find(x => x.id === id);
+  if (!a) return;
+  if (!confirm(`確定要將「${a.name}」標記為全班已完成？`)) return;
+  a.missingSeatNums = [];
+  save();
+  renderAssignmentList();
+  showToast('已全部標記完成 🎉', 'success');
+}
+
+function deleteAssignment(id) {
+  const a = assignments.find(x => x.id === id);
+  if (!a) return;
+  if (!confirm(`確定要刪除「${a.name}」？`)) return;
+  assignments = assignments.filter(x => x.id !== id);
+  save();
+  renderAssignmentList();
+  showToast('作業已刪除');
+}
+
+// ════════════════════════════════════════════
+//  新增/編輯 Modal
+// ════════════════════════════════════════════
+let seatMode = 'normal'; // 'normal' | 'inverse'
+
+function setSeatMode(mode) {
+  seatMode = mode;
+  document.getElementById('mode-btn-normal').classList.toggle('active', mode === 'normal');
+  document.getElementById('mode-btn-inverse').classList.toggle('active', mode === 'inverse');
+  document.getElementById('mode-btn-inverse').classList.toggle('inverse-active', mode === 'inverse');
+  document.getElementById('inverse-hint').classList.toggle('show', mode === 'inverse');
+  document.getElementById('inverse-size-hint').textContent = getClassSize();
+  const label = document.getElementById('seat-section-label');
+  const hint = document.getElementById('seat-hint-text');
+  if (mode === 'inverse') {
+    label.textContent = '✅ 已完成的座號（其餘全部列入待訂正）';
+    hint.textContent = '輸入答對/完成的座號，儲存後系統自動計算缺交名單';
+    hint.style.color = '#92400e';
+  } else {
+    label.textContent = '❌ 尚未繳交的座號';
+    hint.textContent = '點「批次」可一次輸入多個座號，如：1-5, 8, 10-15';
+    hint.style.color = '';
+  }
+}
+
+function openAddModal() {
+  editingId = null;
+  currentSeatTags = [];
+  seatMode = 'normal';
+  document.getElementById('modal-title').textContent = '新增作業';
+  document.getElementById('form-name').value = '';
+  document.getElementById('form-date').value = today();
+  setSeatMode('normal');
+  renderSeatTags();
+  document.getElementById('add-modal').classList.add('open');
+  setTimeout(() => document.getElementById('form-name').focus(), 100);
+}
+
+function openEditModal(id) {
+  const a = assignments.find(x => x.id === id);
+  if (!a) return;
+  editingId = id;
+  currentSeatTags = [...a.missingSeatNums];
+  seatMode = 'normal';
+  document.getElementById('modal-title').textContent = '編輯作業';
+  document.getElementById('form-name').value = a.name;
+  document.getElementById('form-date').value = a.dueDate;
+  setSeatMode('normal');
+  renderSeatTags();
+  document.getElementById('add-modal').classList.add('open');
+}
+
+function closeAddModal() {
+  document.getElementById('add-modal').classList.remove('open');
+}
+
+function saveAssignment() {
+  const name = document.getElementById('form-name').value.trim();
+  const date = document.getElementById('form-date').value;
+  if (!name) { alert('請輸入作業名稱'); return; }
+  if (!date) { alert('請選擇截止日期'); return; }
+
+  let finalMissing;
+  if (seatMode === 'inverse') {
+    // currentSeatTags = 答對的座號 → 缺交 = 全班名冊 - 答對
+    const correctSet = new Set(currentSeatTags);
+    finalMissing = getActiveRoster().filter(i => !correctSet.has(i));
+  } else {
+    finalMissing = [...currentSeatTags].sort((a,b)=>a-b);
+  }
+
+  if (editingId) {
+    const a = assignments.find(x => x.id === editingId);
+    a.name = name;
+    a.dueDate = date;
+    a.missingSeatNums = finalMissing;
+    showToast('作業已更新', 'success');
+  } else {
+    assignments.push({
+      id: 'a' + Date.now(),
+      name,
+      dueDate: date,
+      missingSeatNums: finalMissing
+    });
+    showToast(`作業已新增，${finalMissing.length} 人待訂正`, 'success');
+  }
+  save();
+  closeAddModal();
+  renderAssignmentList();
+}
+
+// ── Seat Tags ──
+function addSeatTag() {
+  const inp = document.getElementById('seat-single-input');
+  const n = parseInt(inp.value);
+  if (!n || n < 1 || n > 60) { inp.focus(); return; }
+  if (!currentSeatTags.includes(n)) currentSeatTags.push(n);
+  inp.value = '';
+  renderSeatTags();
+  inp.focus();
+}
+
+function removeTag(n) {
+  currentSeatTags = currentSeatTags.filter(x => x !== n);
+  renderSeatTags();
+}
+
+function renderSeatTags() {
+  const container = document.getElementById('seat-tags');
+  if (!currentSeatTags.length) { container.innerHTML = '<span style="font-size:12px;color:var(--text-muted);">尚未新增座號</span>'; return; }
+  container.innerHTML = currentSeatTags.sort((a,b)=>a-b).map(n =>
+    `<span class="seat-tag">${n}號<span class="remove-tag" onclick="removeTag(${n})">✕</span></span>`
+  ).join('');
+}
+
+// ── Batch Modal ──
+function addBatchSeats() {
+  document.getElementById('batch-input').value = '';
+  document.getElementById('batch-modal').classList.add('open');
+}
+function closeBatchModal() {
+  document.getElementById('batch-modal').classList.remove('open');
+}
+function confirmBatch() {
+  const raw = document.getElementById('batch-input').value;
+  const nums = parseSeatString(raw);
+  nums.forEach(n => { if (!currentSeatTags.includes(n)) currentSeatTags.push(n); });
+  renderSeatTags();
+  closeBatchModal();
+}
+
+function parseSeatString(str) {
+  const result = [];
+  const parts = str.split(/[,，\s]+/);
+  parts.forEach(p => {
+    p = p.trim();
+    if (!p) return;
+    const range = p.match(/^(\d+)\s*[-~]\s*(\d+)$/);
+    if (range) {
+      const from = parseInt(range[1]), to = parseInt(range[2]);
+      for (let i = Math.min(from,to); i <= Math.max(from,to); i++) {
+        if (i >= 1 && i <= 60) result.push(i);
+      }
+    } else {
+      const n = parseInt(p);
+      if (!isNaN(n) && n >= 1 && n <= 60) result.push(n);
+    }
+  });
+  return [...new Set(result)];
+}
+
+// ════════════════════════════════════════════
+//  班級總覽
+// ════════════════════════════════════════════
+function renderOverview() {
+  const roster = getActiveRoster();
+  const grid = document.getElementById('seat-grid');
+  grid.innerHTML = roster.map(i => {
+    const count = assignments.filter(a => a.missingSeatNums.includes(i)).length;
+    let cls = 'ok';
+    if (count >= 3) cls = 'missing-many';
+    else if (count >= 1) cls = 'missing-some';
+    const dot = count > 0 ? `<div class="count-dot">${count}</div>` : '';
+    return `<div class="seat-cell ${cls}" onclick="openStudentModal(${i})">${dot}${i}</div>`;
+  }).join('');
+}
+
+function openStudentModal(seatNum) {
+  const missing = assignments.filter(a => a.missingSeatNums.includes(seatNum));
+  document.getElementById('student-modal-title').textContent = `${seatNum} 號的缺交作業`;
+  const body = document.getElementById('student-modal-body');
+  if (!missing.length) {
+    body.innerHTML = `<div class="empty-state" style="padding:20px"><div class="icon">🎉</div><p>目前沒有缺交作業！</p></div>`;
+  } else {
+    body.innerHTML = missing.map(a => {
+      const days = daysOverdue(a.dueDate);
+      const overdue = days > 0 ? `<span class="badge badge-${days>3?'danger':'warning'}">逾期${days}天</span>` : '';
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="font-weight:600;font-size:15px;margin-bottom:4px;">${escHtml(a.name)}</div>
+        <div style="font-size:12px;color:var(--text-muted);display:flex;gap:8px;align-items:center;">
+          📅 截止 ${fmtDateFull(a.dueDate)} ${overdue}
+        </div>
+      </div>`;
+    }).join('') + `<div style="margin-top:16px;font-size:13px;color:var(--text-muted);">共 ${missing.length} 項待補交</div>`;
+  }
+  document.getElementById('student-modal').classList.add('open');
+}
+
+function closeStudentModal() {
+  document.getElementById('student-modal').classList.remove('open');
+}
+
+// ════════════════════════════════════════════
+//  語音輸入
+// ════════════════════════════════════════════
+function renderVoiceAssignmentSelect() {
+  const sel = document.getElementById('voice-assignment-select');
+  const hasMissing = assignments.filter(a => a.missingSeatNums.length > 0);
+  sel.innerHTML = '<option value="">-- 請選擇作業 --</option>' +
+    hasMissing.map(a => `<option value="${a.id}">${escHtml(a.name)} (${a.missingSeatNums.length}人待補)</option>`).join('');
+}
+
+function toggleVoice() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast('此裝置不支援語音識別，請使用手動輸入', 'error');
+    return;
+  }
+  if (recognizing) {
+    recognition && recognition.stop();
+    return;
+  }
+  startVoice();
+}
+
+function startVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'zh-TW';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  recognition.onstart = () => {
+    recognizing = true;
+    document.getElementById('mic-btn').classList.add('listening');
+    document.getElementById('mic-btn').textContent = '⏹';
+    document.getElementById('voice-status').textContent = '聆聽中...請說出已訂正的座號';
+    document.getElementById('voice-result').textContent = '';
+  };
+
+  recognition.onresult = (e) => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    document.getElementById('voice-result').textContent = transcript;
+    if (e.results[e.results.length - 1].isFinal) {
+      processVoiceResult(transcript);
+    }
+  };
+
+  recognition.onend = () => {
+    recognizing = false;
+    document.getElementById('mic-btn').classList.remove('listening');
+    document.getElementById('mic-btn').textContent = '🎙️';
+    document.getElementById('voice-status').textContent = '點擊麥克風再次輸入';
+  };
+
+  recognition.onerror = (e) => {
+    recognizing = false;
+    document.getElementById('mic-btn').classList.remove('listening');
+    document.getElementById('mic-btn').textContent = '🎙️';
+    document.getElementById('voice-status').textContent = '語音識別失敗，請重試';
+    showToast('語音識別錯誤：' + e.error, 'error');
+  };
+
+  recognition.start();
+}
+
+// ── 共用座號解析工具 ──
+const ZH_NUM = {'零':0,'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,
+  '十一':11,'十二':12,'十三':13,'十四':14,'十五':15,'十六':16,'十七':17,'十八':18,'十九':19,'二十':20,
+  '二十一':21,'二十二':22,'二十三':23,'二十四':24,'二十五':25,'二十六':26,'二十七':27,'二十八':28,'二十九':29,'三十':30,
+  '三十一':31,'三十二':32,'三十三':33,'三十四':34,'三十五':35,'三十六':36,'三十七':37,'三十八':38,'三十九':39,'四十':40};
+
+function extractSeatsFromText(text) {
+  const nums = new Set();
+  const arabicMatches = text.matchAll(/(\d{1,2})\s*號/g);
+  for (const m of arabicMatches) { const n=parseInt(m[1]); if(n>=1&&n<=60) nums.add(n); }
+  const zhPattern = new RegExp(Object.keys(ZH_NUM).sort((a,b)=>b.length-a.length).join('|')+'(?=號)','g');
+  for (const m of text.matchAll(zhPattern)) { const n=ZH_NUM[m[0]]; if(n>=1&&n<=60) nums.add(n); }
+  if (nums.size === 0) {
+    for (const m of text.matchAll(/\b(\d{1,2})\b/g)) { const n=parseInt(m[1]); if(n>=1&&n<=60) nums.add(n); }
+  }
+  return [...nums].sort((a,b)=>a-b);
+}
+
+// 判斷是否為反向模式（只有這些人對）
+function isInverseVoiceText(text) {
+  return /只有|只剩|除了|僅有/.test(text) && /對|正確|完成|好了|做對|交了/.test(text);
+}
+
+let voiceIsInverse = false;
+
+function processVoiceResult(text) {
+  voiceIsInverse = isInverseVoiceText(text);
+  const seats = extractSeatsFromText(text);
+
+  if (voiceIsInverse) {
+    // 反向：seats = 答對的人，missing = 全班 - seats
+    const selId = document.getElementById('voice-assignment-select').value;
+    const a = selId ? assignments.find(x => x.id === selId) : null;
+    const maxSeat = a ? Math.max(...a.missingSeatNums, getClassSize()) : getClassSize();
+    const correctSet = new Set(seats);
+    parsedSeats = [];
+    for (let i = 1; i <= maxSeat; i++) {
+      if (!correctSet.has(i) && (!a || a.missingSeatNums.includes(i))) parsedSeats.push(i);
+    }
+    // parsedSeats = 待移除（即剩餘缺交的不在正確裡）
+    // 實際上反向意思：只有這些對 → 其他都要補 → 這裡邏輯是「只有這些完成了」
+    // 所以 parsedSeats = seats (答對的人，要從待訂正移除)
+    parsedSeats = seats;
+  } else {
+    parsedSeats = seats;
+  }
+
+  renderParsedSeats();
+}
+
+function renderParsedSeats() {
+  const container = document.getElementById('voice-parsed');
+  const confirmArea = document.getElementById('voice-confirm-area');
+  if (!parsedSeats.length) {
+    container.innerHTML = '<span style="color:var(--text-muted);font-size:13px;">未識別到座號，請重試或手動輸入</span>';
+    confirmArea.style.display = 'none';
+    return;
+  }
+  const inverseNote = voiceIsInverse
+    ? `<p style="width:100%;font-size:12px;color:#92400e;background:#fef3c7;padding:6px 8px;border-radius:6px;margin-bottom:6px;">⚡ 反向模式：以下座號「已完成」，將從待訂正名單移除</p>`
+    : '';
+  container.innerHTML = inverseNote +
+    `<p style="width:100%;font-size:13px;color:var(--text-muted);margin-bottom:4px;">識別到 ${parsedSeats.length} 位同學：</p>` +
+    parsedSeats.map(n => `<span class="seat-tag" style="background:var(--success-light);color:var(--success)">${n}號</span>`).join('');
+  confirmArea.style.display = 'block';
+}
+
+function confirmVoiceSubmission() {
+  const selId = document.getElementById('voice-assignment-select').value;
+  if (!selId) { showToast('請先選擇作業項目', 'error'); return; }
+  applyVoiceCorrection(selId, parsedSeats, 'voice-assignment-select');
+  clearVoice();
+  renderVoiceAssignmentSelect();
+  const sel = document.getElementById('voice-assignment-select');
+  for (let i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === selId) { sel.selectedIndex = i; break; }
+  }
+}
+
+function applyVoiceCorrection(assignmentId, seats, selectElId) {
+  const a = assignments.find(x => x.id === assignmentId);
+  if (!a) return;
+  const removed = seats.filter(n => a.missingSeatNums.includes(n));
+  a.missingSeatNums = a.missingSeatNums.filter(n => !seats.includes(n));
+  save();
+  renderAssignmentList();
+  showToast(`✓ ${removed.length} 位同學已完成訂正`, 'success');
+}
+
+function clearVoice() {
+  parsedSeats = [];
+  document.getElementById('voice-result').textContent = '語音識別結果會顯示在這裡...';
+  document.getElementById('voice-parsed').innerHTML = '';
+  document.getElementById('voice-confirm-area').style.display = 'none';
+}
+
+function manualSubmit() {
+  const raw = document.getElementById('manual-seat-input').value;
+  const nums = parseSeatString(raw);
+  if (!nums.length) { showToast('請輸入有效座號', 'error'); return; }
+  parsedSeats = nums;
+  voiceIsInverse = false;
+  document.getElementById('voice-result').textContent = `手動輸入：${raw}`;
+  renderParsedSeats();
+  document.getElementById('manual-seat-input').value = '';
+}
+
+// ════════════════════════════════════════════
+//  班級座號設定（Roster）
+// ════════════════════════════════════════════
+let setupToggleSet = new Set(); // 被標記為移除的座號
+
+function openSetupModal() {
+  const max = classRoster.length ? Math.max(...classRoster) : getClassSize();
+  document.getElementById('setup-max-seat').value = max;
+  // 計算目前被排除的座號
+  setupToggleSet = new Set();
+  if (classRoster.length) {
+    for (let i = 1; i <= max; i++) {
+      if (!classRoster.includes(i)) setupToggleSet.add(i);
+    }
+  }
+  generateSetupGrid();
+  document.getElementById('setup-modal').classList.add('open');
+}
+
+function closeSetupModal() {
+  document.getElementById('setup-modal').classList.remove('open');
+}
+
+function generateSetupGrid() {
+  const max = parseInt(document.getElementById('setup-max-seat').value) || 35;
+  const grid = document.getElementById('setup-grid');
+  grid.innerHTML = Array.from({length: max}, (_, i) => {
+    const n = i + 1;
+    const removed = setupToggleSet.has(n);
+    return `<div id="setup-cell-${n}" onclick="toggleSetupSeat(${n})"
+      style="aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;
+             font-size:14px;font-weight:700;cursor:pointer;border:2px solid;transition:all 0.15s;
+             ${removed
+               ? 'background:#f1f5f9;color:#94a3b8;border-color:#cbd5e1;text-decoration:line-through;'
+               : 'background:var(--success-light);color:var(--success);border-color:#86efac;'}">${n}</div>`;
+  }).join('');
+  updateSetupCount(max);
+}
+
+function toggleSetupSeat(n) {
+  if (setupToggleSet.has(n)) {
+    setupToggleSet.delete(n);
+  } else {
+    setupToggleSet.add(n);
+  }
+  const cell = document.getElementById('setup-cell-' + n);
+  const removed = setupToggleSet.has(n);
+  cell.style.cssText = `aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:700;cursor:pointer;border:2px solid;transition:all 0.15s;
+    ${removed
+      ? 'background:#f1f5f9;color:#94a3b8;border-color:#cbd5e1;text-decoration:line-through;'
+      : 'background:var(--success-light);color:var(--success);border-color:#86efac;'}`;
+  const max = parseInt(document.getElementById('setup-max-seat').value) || 35;
+  updateSetupCount(max);
+}
+
+function updateSetupCount(max) {
+  const active = max - setupToggleSet.size;
+  document.getElementById('setup-count-hint').textContent =
+    `有效座號：${active} 人　已排除：${setupToggleSet.size} 人（${[...setupToggleSet].sort((a,b)=>a-b).join('、') || '無'}）`;
+}
+
+function saveRoster() {
+  const max = parseInt(document.getElementById('setup-max-seat').value) || 35;
+  classRoster = [];
+  for (let i = 1; i <= max; i++) {
+    if (!setupToggleSet.has(i)) classRoster.push(i);
+  }
+  saveRosterToStorage();
+  document.getElementById('class-size-input').value = max;
+  closeSetupModal();
+  showToast(`班級設定已儲存，共 ${classRoster.length} 位有效座號`, 'success');
+  renderAssignmentList();
+  if (document.getElementById('tab-overview').classList.contains('active')) renderOverview();
+}
+
+// ════════════════════════════════════════════
+//  管理頁快速語音訂正
+// ════════════════════════════════════════════
+let quickRecognition = null;
+let quickRecognizing = false;
+let quickParsedSeats = [];
+let quickVoiceOpen = false;
+
+function renderQuickVoiceSelect() {
+  const sel = document.getElementById('quick-voice-select');
+  if (!sel) return;
+  const prev = sel.value;
+  const hasMissing = assignments.filter(a => a.missingSeatNums.length > 0);
+  sel.innerHTML = '<option value="">-- 請選擇作業 --</option>' +
+    hasMissing.map(a => `<option value="${a.id}">${escHtml(a.name)} (${a.missingSeatNums.length}人待補)</option>`).join('');
+  if (prev) {
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === prev) { sel.selectedIndex = i; break; }
+    }
+  }
+}
+
+function toggleQuickVoice() {
+  quickVoiceOpen = !quickVoiceOpen;
+  document.getElementById('quick-voice-body').style.display = quickVoiceOpen ? 'block' : 'none';
+  document.getElementById('quick-voice-chevron').style.transform = quickVoiceOpen ? 'rotate(180deg)' : '';
+  if (quickVoiceOpen) renderQuickVoiceSelect();
+}
+
+function toggleQuickVoice_mic() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast('此裝置不支援語音識別', 'error'); return;
+  }
+  if (quickRecognizing) { quickRecognition && quickRecognition.stop(); return; }
+  startQuickVoice();
+}
+
+function startQuickVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  quickRecognition = new SR();
+  quickRecognition.lang = 'zh-TW';
+  quickRecognition.continuous = false;
+  quickRecognition.interimResults = true;
+
+  quickRecognition.onstart = () => {
+    quickRecognizing = true;
+    document.getElementById('quick-mic-btn').classList.add('listening');
+    document.getElementById('quick-mic-btn').textContent = '⏹';
+    document.getElementById('quick-voice-status').textContent = '聆聽中...';
+    document.getElementById('quick-voice-result').textContent = '';
+  };
+  quickRecognition.onresult = (e) => {
+    const t = Array.from(e.results).map(r => r[0].transcript).join('');
+    document.getElementById('quick-voice-result').textContent = t;
+    if (e.results[e.results.length-1].isFinal) processQuickVoiceResult(t);
+  };
+  quickRecognition.onend = () => {
+    quickRecognizing = false;
+    document.getElementById('quick-mic-btn').classList.remove('listening');
+    document.getElementById('quick-mic-btn').textContent = '🎙️';
+    document.getElementById('quick-voice-status').textContent = '點麥克風再次輸入';
+  };
+  quickRecognition.onerror = (e) => {
+    quickRecognizing = false;
+    document.getElementById('quick-mic-btn').classList.remove('listening');
+    document.getElementById('quick-mic-btn').textContent = '🎙️';
+    showToast('語音識別錯誤：' + e.error, 'error');
+  };
+  quickRecognition.start();
+}
+
+function processQuickVoiceResult(text) {
+  quickParsedSeats = extractSeatsFromText(text);
+  renderQuickParsed();
+}
+
+function renderQuickParsed() {
+  const container = document.getElementById('quick-voice-parsed');
+  const confirmArea = document.getElementById('quick-confirm-area');
+  if (!quickParsedSeats.length) {
+    container.innerHTML = '<span style="font-size:12px;color:var(--text-muted);">未識別到座號</span>';
+    confirmArea.style.display = 'none';
+    return;
+  }
+  container.innerHTML =
+    `<span style="font-size:12px;color:var(--text-muted);width:100%;display:block;margin-bottom:4px;">識別到 ${quickParsedSeats.length} 位：</span>` +
+    quickParsedSeats.map(n => `<span class="seat-tag" style="background:var(--success-light);color:var(--success)">${n}號</span>`).join('');
+  confirmArea.style.display = 'block';
+}
+
+function confirmQuickVoice() {
+  const selId = document.getElementById('quick-voice-select').value;
+  if (!selId) { showToast('請先選擇作業項目', 'error'); return; }
+  applyVoiceCorrection(selId, quickParsedSeats, 'quick-voice-select');
+  clearQuickVoice();
+  renderQuickVoiceSelect();
+}
+
+function clearQuickVoice() {
+  quickParsedSeats = [];
+  document.getElementById('quick-voice-result').textContent = '—';
+  document.getElementById('quick-voice-parsed').innerHTML = '';
+  document.getElementById('quick-confirm-area').style.display = 'none';
+  document.getElementById('quick-voice-status').textContent = '點麥克風開始語音輸入';
+}
+
+function quickManualSubmit() {
+  const raw = document.getElementById('quick-manual-input').value;
+  const nums = parseSeatString(raw);
+  if (!nums.length) { showToast('請輸入有效座號', 'error'); return; }
+  quickParsedSeats = nums;
+  document.getElementById('quick-voice-result').textContent = `手動輸入：${raw}`;
+  renderQuickParsed();
+  document.getElementById('quick-manual-input').value = '';
+}
+
+// ════════════════════════════════════════════
+//  投影模式
+// ════════════════════════════════════════════
+function openProjectorMode() {
+  const size = getClassSize();
+  document.getElementById('proj-date').textContent = new Date().toLocaleDateString('zh-TW');
+
+  // Grid
+  const roster = getActiveRoster();
+  const grid = document.getElementById('proj-grid');
+  grid.innerHTML = roster.map(i => {
+    const count = assignments.filter(a => a.missingSeatNums.includes(i)).length;
+    let cls = 'proj-ok';
+    if (count >= 3) cls = 'proj-bad';
+    else if (count >= 1) cls = 'proj-warn';
+    const countLabel = count > 0 ? `<div class="proj-count">${count}項</div>` : '';
+    return `<div class="proj-seat ${cls}" onclick="projSeatClick(${i})">${i}${countLabel}</div>`;
+  }).join('');
+
+  // Assignment List
+  const aList = document.getElementById('proj-assignments');
+  const pending = assignments.filter(a => a.missingSeatNums.length > 0)
+    .sort((a,b) => a.dueDate.localeCompare(b.dueDate));
+  if (!pending.length) {
+    aList.innerHTML = '<div style="text-align:center;padding:30px;opacity:0.4;font-size:18px;">🎉 全班作業皆已完成！</div>';
+  } else {
+    aList.innerHTML = pending.map(a => {
+      const days = daysOverdue(a.dueDate);
+      const ob = days > 3 ? `<span class="proj-overdue-badge">逾期${days}天</span>` : days > 0 ? `<span class="proj-overdue-badge" style="background:var(--warning)">逾期${days}天</span>` : '';
+      return `<div class="proj-assign-card">
+        <h3>${escHtml(a.name)} <span style="font-size:13px;opacity:0.6;font-weight:400">截止 ${fmtDate(a.dueDate)}</span>${ob}</h3>
+        <div class="seats">${a.missingSeatNums.sort((a,b)=>a-b).map(n=>`<span class="seat-chip">${n}號</span>`).join('')}</div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('projector-mode').classList.add('open');
+}
+
+function projSeatClick(seatNum) {
+  const missing = assignments.filter(a => a.missingSeatNums.includes(seatNum));
+  let msg = `${seatNum} 號`;
+  if (!missing.length) {
+    msg += '\n\n✅ 沒有缺交作業！';
+  } else {
+    msg += `\n\n缺交 ${missing.length} 項：\n` + missing.map(a => `• ${a.name}`).join('\n');
+  }
+  alert(msg);
+}
+
+function closeProjectorMode() {
+  document.getElementById('projector-mode').classList.remove('open');
+}
+
+// ════════════════════════════════════════════
+//  Toast
+// ════════════════════════════════════════════
+function showToast(msg, type = '') {
+  const tc = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type === 'success' ? ' success-toast' : type === 'error' ? ' error-toast' : '');
+  t.textContent = msg;
+  tc.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+
+// ════════════════════════════════════════════
+//  Utils
+// ════════════════════════════════════════════
+function showLoadingState(on) {
+  let el = document.getElementById('loading-bar');
+  if (on) {
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'loading-bar';
+      el.style.cssText = 'position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#2563eb,#60a5fa,#2563eb);background-size:200%;animation:loadingAnim 1.2s linear infinite;z-index:9999;';
+      document.body.prepend(el);
+      if (!document.getElementById('loading-bar-style')) {
+        const s = document.createElement('style');
+        s.id = 'loading-bar-style';
+        s.textContent = '@keyframes loadingAnim{0%{background-position:200%}100%{background-position:0%}}';
+        document.head.appendChild(s);
+      }
+    }
+  } else {
+    if (el) el.remove();
+  }
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Close modals on backdrop click
+document.querySelectorAll('.modal-backdrop').forEach(bd => {
+  bd.addEventListener('click', e => {
+    if (e.target === bd) bd.classList.remove('open');
+  });
+});
+
+// ════════════════════════════════════════════
+//  Init
+// ════════════════════════════════════════════
+document.getElementById('today-display').textContent =
+  new Date().toLocaleDateString('zh-TW', {year:'numeric', month:'long', day:'numeric', weekday:'short'});
+
+setupRealtimeSync();
+</script>
+</body>
+</html>
