@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"G:\\\\\" 2>/dev/null || echo \"G: not found\" && dir /d 2>/dev/null | head -5)",
+      "Bash(cmd.exe /c \"wmic logicaldisk get caption,description,volumename 2>nul\")"
+    ]
+  }
+}

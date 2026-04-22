@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/HSPS/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/1e34ff21-b79b-469f-b331-69c69010184e/7e69b199-38fc-4548-8c54-3229691e76c0/skills/docx/**)",
+      "Bash(python scripts/office/soffice.py --headless --convert-to docx \"C:\\\\Users\\\\HSPS\\\\Desktop\\\\01-114下部定-課程計畫表格.doc\" --outdir \"C:\\\\Users\\\\HSPS\\\\Desktop\\\\Claude Code\\\\lessonWeekPlan\")",
+      "Bash(pandoc \"C:\\\\Users\\\\HSPS\\\\Desktop\\\\01-114下部定-課程計畫表格.doc\" -o \"C:\\\\Users\\\\HSPS\\\\Desktop\\\\Claude Code\\\\lessonWeekPlan\\\\course_plan.md\")",
+      "Bash(pip install:*)",
+      "Bash(python -c:*)",
+      "Bash(python -c \"import sys; sys.stdout.buffer.write\\(sys.stdin.buffer.read\\(\\)\\)\")",
+      "Bash(npm install:*)",
+      "Bash(cmd /c \"where node\")",
+      "Bash(cmd /c \"where npm\")",
+      "Bash(cmd /c \"python --version\")",
+      "Bash(cmd /c \"pip list 2>&1 | findstr -i flask\")",
+      "Bash(python server.py)",
+      "Bash(curl -s http://localhost:5000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5000)",
+      "Bash(curl -s -X POST http://localhost:5000/api/analyze-image -H 'Content-Type: application/json' -H 'X-API-Key: test' -H 'X-AI-Provider: gemini' -d '{\"image\":\"dGVzdA==\",\"mediaType\":\"image/jpeg\"}')",
+      "Bash(curl -s -X POST http://localhost:5000/api/analyze-image -H 'Content-Type: application/json' -H 'X-API-Key: test' -H 'X-AI-Provider: gemini' -d '{\"image\":\"dGVzdA==\",\"mediaType\":\"image/jpeg\"}' -v)",
+      "Bash(pkill -f \"python server.py\")",
+      "Bash(curl -s -X POST http://localhost:5001/api/analyze-image -H 'Content-Type: application/json' -H 'X-API-Key: test' -H 'X-AI-Provider: gemini' -d '{\\\\\"image\\\\\":\\\\\"dGVzdA==\\\\\",\\\\\"mediaType\\\\\":\\\\\"image/jpeg\\\\\"}')",
+      "Bash(pkill -f \"python server.py\" pkill -f \"python -c\" sleep 2)",
+      "Bash(taskkill /PID 6212 /F taskkill /PID 3280 /F taskkill /PID 2284 /F taskkill /PID 13272 /F sleep 2 netstat -ano)",
+      "Bash(curl -s -X POST http://localhost:5001/api/analyze-image -H 'Content-Type: application/json' -H 'X-API-Key: test' -H 'X-AI-Provider: gemini' -d '{\"image\":\"dGVzdA==\",\"mediaType\":\"image/jpeg\"}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5001)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__computer",
+      "mcp__Claude_in_Chrome__get_page_text"
+    ]
+  }
+}

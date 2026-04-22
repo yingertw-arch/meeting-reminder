@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🪑 座位系統</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --slate-50:  #F8FAFC; --slate-100: #F1F5F9; --slate-200: #E2E8F0;
+    --slate-300: #CBD5E1; --slate-400: #94A3B8; --slate-500: #64748B;
+    --slate-600: #475569; --slate-700: #334155; --slate-800: #1E293B;
+    --slate-900: #0F172A;
+    --blue-50:  #EFF6FF; --blue-100: #DBEAFE; --blue-500: #3B82F6;
+    --blue-600: #2563EB; --blue-700: #1D4ED8;
+    --emerald-500: #10B981; --emerald-600: #059669;
+    --red-500: #EF4444;   --red-600: #DC2626;
+    --amber-400: #FBBF24; --amber-500: #F59E0B;
+    --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.1), 0 2px 4px rgba(0,0,0,.06);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,.14), 0 4px 8px rgba(0,0,0,.08);
+    --panel-w: 288px;
+    --header-h: 56px;
+  }
+
+  html, body {
+    height: 100%; font-family: -apple-system, 'Noto Sans TC', sans-serif;
+    background: var(--slate-100); color: var(--slate-800);
+    font-size: 14px; line-height: 1.5;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
+
+  /* ─── LAYOUT ─── */
+  #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  /* HEADER */
+  #header {
+    height: var(--header-h); flex-shrink: 0;
+    background: white; border-bottom: 1px solid var(--slate-200);
+    display: flex; align-items: center; gap: 12px; padding: 0 16px;
+    box-shadow: var(--shadow-sm); z-index: 100; position: relative;
+  }
+  #header .brand {
+    font-weight: 700; font-size: 17px; color: var(--slate-800);
+    white-space: nowrap; display: flex; align-items: center; gap: 6px;
+  }
+  .divider-v { width: 1px; height: 24px; background: var(--slate-200); flex-shrink: 0; }
+
+  /* Class selector */
+  .class-selector-wrap { position: relative; }
+  #classDropdownBtn {
+    display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+    background: var(--slate-50); border: 1px solid var(--slate-200);
+    border-radius: var(--radius-md); cursor: pointer; font-size: 14px;
+    font-weight: 600; color: var(--slate-700); transition: all .15s;
+    max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #classDropdownBtn:hover { background: var(--slate-100); border-color: var(--slate-300); }
+  #classDropdownBtn .arrow { font-size: 10px; color: var(--slate-400); margin-left: 4px; }
+
+  .class-dropdown {
+    position: absolute; top: calc(100% + 6px); left: 0;
+    background: white; border: 1px solid var(--slate-200);
+    border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+    min-width: 200px; z-index: 200; overflow: hidden;
+    opacity: 0; pointer-events: none; transform: translateY(-6px);
+    transition: opacity .15s, transform .15s;
+  }
+  .class-dropdown.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+  .class-dropdown-item {
+    display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+    cursor: pointer; font-size: 13px; color: var(--slate-700); transition: background .1s;
+  }
+  .class-dropdown-item:hover { background: var(--slate-50); }
+  .class-dropdown-item.active { background: var(--blue-50); color: var(--blue-600); font-weight: 600; }
+  .class-dropdown-item.danger { color: var(--red-500); }
+  .class-dropdown-item.danger:hover { background: #FEF2F2; }
+  .class-dropdown-sep { height: 1px; background: var(--slate-100); margin: 4px 0; }
+
+  /* Header badges & buttons */
+  .badge-edit {
+    background: var(--blue-500); color: white; font-size: 11px; font-weight: 700;
+    padding: 2px 8px; border-radius: 99px; letter-spacing: .02em;
+    display: none;
+  }
+  body.edit-mode .badge-edit { display: inline-block; }
+
+  .badge-locked {
+    background: #ECFDF5; color: #065F46; font-size: 11px; font-weight: 700;
+    padding: 3px 10px; border-radius: 99px; border: 1px solid #A7F3D0;
+    display: none; letter-spacing: .01em;
+  }
+  body.view-mode.has-class .badge-locked { display: inline-block; }
+  body.edit-mode .badge-locked { display: none; }
+
+  #header .spacer { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+    border-radius: var(--radius-md); border: none; cursor: pointer; font-size: 13px;
+    font-weight: 600; transition: all .15s; white-space: nowrap;
+  }
+  .btn-ghost {
+    background: transparent; color: var(--slate-600); border: 1px solid var(--slate-200);
+  }
+  .btn-ghost:hover { background: var(--slate-100); }
+  .btn-primary { background: var(--blue-500); color: white; }
+  .btn-primary:hover { background: var(--blue-600); }
+  .btn-success { background: var(--emerald-500); color: white; }
+  .btn-success:hover { background: var(--emerald-600); }
+  .btn-danger { background: var(--red-500); color: white; }
+  .btn-danger:hover { background: var(--red-600); }
+  .btn-icon { padding: 7px 10px; border-radius: var(--radius-md); }
+
+  #btnEdit, #btnLottery { display: none; }
+  body.view-mode.has-class #btnEdit    { display: inline-flex; }
+  body.view-mode.has-class #btnLottery { display: inline-flex; }
+  #btnSave, #btnCancel { display: none; }
+  body.edit-mode #btnSave, body.edit-mode #btnCancel { display: inline-flex; }
+
+  /* ─── MAIN CONTENT ─── */
+  #main { flex: 1; display: flex; overflow: hidden; }
+
+  /* GRID AREA */
+  #gridArea {
+    flex: 1; overflow: auto; padding: 24px;
+    transition: padding-right .25s;
+    display: flex; flex-direction: column; align-items: center;
+  }
+
+  .blackboard {
+    background: linear-gradient(135deg, #2D4A22 0%, #3A5E2B 100%);
+    color: #B5D5A0; font-size: 13px; font-weight: 600; letter-spacing: 1.5px;
+    text-align: center; padding: 8px 24px; border-radius: var(--radius-md);
+    margin-bottom: 20px; width: 100%; max-width: var(--grid-max-w, 700px);
+    box-shadow: var(--shadow-sm); border: 2px solid #1E3A15;
+  }
+
+  #seatGrid {
+    display: grid;
+    gap: 10px;
+    width: fit-content;
+  }
+
+  .seat-card {
+    width: 90px; height: 72px; border-radius: var(--radius-md);
+    border: 2px solid var(--slate-200); background: var(--slate-50);
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    position: relative; transition: all .15s; cursor: default;
+    box-shadow: var(--shadow-sm); overflow: hidden;
+    user-select: none;
+  }
+  .seat-card .seat-num {
+    position: absolute; top: 3px; left: 5px; font-size: 9px;
+    color: var(--slate-400); font-weight: 500; line-height: 1;
+  }
+  .seat-card .seat-name {
+    font-size: 13px; font-weight: 700; color: var(--slate-700);
+    text-align: center; padding: 0 6px; line-height: 1.2;
+  }
+  .seat-card .seat-group-tag {
+    font-size: 9px; font-weight: 600; padding: 1px 5px;
+    border-radius: 99px; margin-top: 3px; letter-spacing: .02em;
+  }
+  .seat-card .seat-leader {
+    position: absolute; top: 2px; right: 5px; font-size: 11px; line-height: 1;
+  }
+  .seat-card.empty { background: var(--slate-50); border-style: dashed; }
+  .seat-card.empty .seat-placeholder {
+    font-size: 20px; color: var(--slate-300); font-weight: 300;
+    display: none;
+  }
+  body.edit-mode .seat-card.empty .seat-placeholder { display: block; }
+  body.edit-mode .seat-card { cursor: pointer; }
+  body.edit-mode .seat-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+  .seat-card.drag-over { box-shadow: 0 0 0 3px var(--blue-500); transform: scale(1.03); }
+
+  /* ─── EDIT PANEL ─── */
+  #editPanel {
+    width: 0; flex-shrink: 0; overflow: hidden;
+    border-left: 1px solid transparent;
+    transition: width .25s cubic-bezier(.4,0,.2,1), border-color .25s;
+    background: white;
+  }
+  body.edit-mode #editPanel {
+    width: var(--panel-w); border-color: var(--slate-200);
+  }
+
+  .panel-inner { width: var(--panel-w); height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+  .panel-section { padding: 14px 16px; border-bottom: 1px solid var(--slate-100); }
+  .panel-section:last-child { border-bottom: none; }
+  .panel-title {
+    font-size: 11px; font-weight: 700; color: var(--slate-400);
+    text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px;
+  }
+
+  /* Grid config */
+  .grid-config-row { display: flex; align-items: center; gap: 8px; }
+  .grid-config-row label { font-size: 12px; color: var(--slate-500); }
+  .num-input {
+    width: 52px; padding: 5px 8px; border: 1px solid var(--slate-200);
+    border-radius: var(--radius-sm); font-size: 13px; text-align: center;
+    transition: border-color .15s; outline: none;
+  }
+  .num-input:focus { border-color: var(--blue-500); }
+
+  /* Student list */
+  #stuListScroll { flex: 1; overflow-y: auto; }
+  .stu-list-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .count-badge {
+    background: var(--slate-200); color: var(--slate-600); font-size: 11px;
+    font-weight: 700; padding: 2px 7px; border-radius: 99px;
+  }
+  .stu-add-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .stu-add-row input {
+    flex: 1; padding: 6px 10px; border: 1px solid var(--slate-200);
+    border-radius: var(--radius-sm); font-size: 13px; outline: none; transition: border-color .15s;
+  }
+  .stu-add-row input:focus { border-color: var(--blue-500); }
+
+  .batch-toggle {
+    font-size: 11px; color: var(--blue-500); cursor: pointer; text-decoration: underline;
+    margin-bottom: 6px; display: inline-block;
+  }
+  #batchArea { display: none; margin-bottom: 8px; }
+  #batchArea.open { display: block; }
+  #batchArea textarea {
+    width: 100%; height: 80px; padding: 6px 8px;
+    border: 1px solid var(--slate-200); border-radius: var(--radius-sm);
+    font-size: 12px; resize: vertical; outline: none; transition: border-color .15s;
+    font-family: inherit;
+  }
+  #batchArea textarea:focus { border-color: var(--blue-500); }
+
+  .stu-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    border-radius: var(--radius-sm); transition: background .1s;
+    cursor: grab;
+  }
+  .stu-item:hover { background: var(--slate-50); }
+  .stu-item.seated { opacity: .5; cursor: default; }
+  .stu-item.dragging { opacity: .35; }
+  .stu-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .stu-name { flex: 1; font-size: 13px; font-weight: 500; }
+  .stu-seat-label { font-size: 10px; color: var(--slate-400); white-space: nowrap; }
+  .stu-del { color: var(--red-500); cursor: pointer; font-size: 14px; padding: 2px 4px;
+    border-radius: 4px; opacity: 0; transition: opacity .1s; }
+  .stu-item:hover .stu-del { opacity: 1; }
+
+  /* ─── OVERLAYS / MODALS ─── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 500; opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: white; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+    padding: 24px; min-width: 320px; max-width: 440px; width: 90%;
+    transform: scale(.95) translateY(8px); transition: transform .2s, opacity .2s;
+    opacity: 0; max-height: 90vh; overflow-y: auto;
+  }
+  .overlay.open .modal { transform: scale(1) translateY(0); opacity: 1; }
+  .modal-title { font-size: 16px; font-weight: 700; color: var(--slate-800); margin-bottom: 16px; }
+  .modal-body { display: flex; flex-direction: column; gap: 12px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--slate-500); }
+  .form-input {
+    padding: 8px 10px; border: 1px solid var(--slate-200); border-radius: var(--radius-sm);
+    font-size: 14px; outline: none; transition: border-color .15s; width: 100%;
+  }
+  .form-input:focus { border-color: var(--blue-500); }
+  .form-row { display: flex; gap: 12px; }
+  .form-row .form-group { flex: 1; }
+
+  /* Seat edit modal specifics */
+  .seat-modal-stu-sel {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--slate-200);
+    border-radius: var(--radius-sm); font-size: 13px; outline: none;
+    transition: border-color .15s; background: white;
+  }
+  .seat-modal-stu-sel:focus { border-color: var(--blue-500); }
+
+  .group-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  }
+  .group-btn {
+    padding: 7px 4px; border-radius: var(--radius-sm); border: 2px solid transparent;
+    cursor: pointer; font-size: 11px; font-weight: 600; text-align: center;
+    transition: all .15s;
+  }
+  .group-btn:hover { filter: brightness(.95); }
+  .group-btn.selected { box-shadow: 0 0 0 2px var(--blue-500); }
+
+  .leader-toggle {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border: 2px solid var(--slate-200); border-radius: var(--radius-md);
+    cursor: pointer; transition: all .15s; user-select: none;
+  }
+  .leader-toggle.active { border-color: var(--amber-400); background: #FFFBEB; }
+  .leader-toggle .crown { font-size: 20px; }
+  .leader-toggle .toggle-label { font-size: 13px; font-weight: 600; flex: 1; }
+  .toggle-pill {
+    width: 36px; height: 20px; border-radius: 99px; background: var(--slate-200);
+    position: relative; transition: background .15s;
+  }
+  .leader-toggle.active .toggle-pill { background: var(--amber-400); }
+  .toggle-pill::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%; background: white;
+    transition: left .15s; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+  .leader-toggle.active .toggle-pill::after { left: 18px; }
+
+  /* Setup / Loading screens */
+  #setupScreen, #loadingScreen {
+    position: fixed; inset: 0; background: var(--slate-900);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; flex-direction: column; gap: 24px;
+  }
+  #setupScreen { background: linear-gradient(135deg, var(--slate-900) 0%, var(--slate-800) 100%); }
+  .setup-card {
+    background: white; border-radius: var(--radius-lg); padding: 32px;
+    width: 90%; max-width: 480px; box-shadow: var(--shadow-lg);
+  }
+  .setup-card h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .setup-card p { color: var(--slate-500); font-size: 13px; margin-bottom: 20px; }
+  .setup-card textarea {
+    width: 100%; height: 160px; padding: 10px; border: 1px solid var(--slate-200);
+    border-radius: var(--radius-md); font-size: 12px; font-family: monospace;
+    resize: vertical; outline: none; transition: border-color .15s;
+  }
+  .setup-card textarea:focus { border-color: var(--blue-500); }
+  .setup-hint { font-size: 11px; color: var(--slate-400); margin-top: 6px; line-height: 1.5; }
+  .spinner {
+    width: 40px; height: 40px; border: 4px solid rgba(255,255,255,.2);
+    border-top-color: white; border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loadingScreen p { color: rgba(255,255,255,.7); font-size: 14px; }
+
+  /* Toast */
+  #toastContainer {
+    position: fixed; bottom: 20px; right: 20px; z-index: 900;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  .toast {
+    padding: 10px 16px; border-radius: var(--radius-md); color: white;
+    font-size: 13px; font-weight: 500; box-shadow: var(--shadow-md);
+    opacity: 0; transform: translateX(20px);
+    transition: opacity .25s, transform .25s;
+    pointer-events: none; max-width: 280px;
+  }
+  .toast.show { opacity: 1; transform: translateX(0); }
+  .toast.success { background: var(--emerald-500); }
+  .toast.error   { background: var(--red-500); }
+  .toast.info    { background: var(--blue-500); }
+
+  /* Empty state */
+  #emptyState {
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    flex: 1; gap: 12px; color: var(--slate-400);
+  }
+  #emptyState.show { display: flex; }
+  #emptyState .es-icon { font-size: 48px; }
+  #emptyState p { font-size: 15px; font-weight: 500; }
+
+  /* Rename input in dropdown */
+  .rename-input {
+    flex: 1; border: none; border-bottom: 1px solid var(--slate-300);
+    font-size: 13px; padding: 1px 0; outline: none; color: var(--slate-800);
+    background: transparent; min-width: 0;
+  }
+
+  /* ─── LOTTERY MODAL ─── */
+  #lotteryOverlay { background: rgba(0,0,0,.88); }
+  .lottery-modal {
+    background: #0F172A; border-radius: 20px;
+    width: min(96vw, 920px); max-height: 92vh;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,.6); color: white;
+    transform: scale(.93) translateY(16px);
+    transition: transform .25s cubic-bezier(.34,1.4,.64,1);
+  }
+  #lotteryOverlay.open .lottery-modal { transform: scale(1) translateY(0); }
+
+  .lottery-header {
+    display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+    border-bottom: 1px solid rgba(255,255,255,.08); flex-shrink: 0;
+  }
+  .lottery-header h2 { font-size: 17px; font-weight: 800; letter-spacing: .02em; margin-right: auto; }
+
+  .lottery-tabs {
+    display: flex; gap: 4px;
+    background: rgba(255,255,255,.08); padding: 4px; border-radius: 10px;
+  }
+  .ltab {
+    padding: 6px 16px; border-radius: 7px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 700; color: rgba(255,255,255,.5);
+    background: transparent; transition: all .15s;
+  }
+  .ltab.active { background: white; color: #0F172A; }
+
+  /* Stage */
+  .lottery-stage {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 20px; min-height: 280px; overflow: auto; position: relative;
+    background: #0A1020;
+  }
+
+  .lottery-grid { display: grid; gap: 8px; }
+
+  .lot-card {
+    width: 78px; height: 60px; border-radius: 8px;
+    background: #1E293B; border: 2px solid #2D3F55;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #475569;
+    transition: background .09s, border-color .09s, transform .09s, box-shadow .09s;
+    user-select: none; text-align: center; padding: 2px 4px;
+    line-height: 1.2;
+  }
+  .lot-card.lot-empty { border-style: dashed; opacity: .25; }
+  .lot-card.lot-active {
+    background: #D97706; border-color: #FBBF24; color: white;
+    transform: scale(1.14); z-index: 2;
+    box-shadow: 0 0 22px rgba(251,191,36,.55);
+  }
+  .lot-card.lot-winner {
+    background: #065F46; border-color: #34D399; color: white;
+    transform: scale(1.18); z-index: 3;
+    box-shadow: 0 0 36px rgba(52,211,153,.65);
+    animation: winnerPulse .55s ease-in-out infinite alternate;
+  }
+  @keyframes winnerPulse {
+    from { transform:scale(1.18); box-shadow:0 0 36px rgba(52,211,153,.65); }
+    to   { transform:scale(1.26); box-shadow:0 0 56px rgba(52,211,153,.9); }
+  }
+
+  /* Winner overlay (inside stage) */
+  .winner-reveal {
+    position: absolute; inset: 0;
+    background: rgba(9,14,27,.93);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s; z-index: 10;
+  }
+  .winner-reveal.show { opacity: 1; pointer-events: all; }
+
+  .winner-emoji { font-size: 46px; animation: bounce .6s ease infinite alternate; }
+  @keyframes bounce { from { transform:translateY(0); } to { transform:translateY(-8px); } }
+
+  .winner-cards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 680px; }
+
+  .winner-card {
+    background: linear-gradient(135deg, #064E3B 0%, #065F46 100%);
+    border: 2px solid #34D399; border-radius: 14px; padding: 18px 28px;
+    text-align: center; box-shadow: 0 8px 32px rgba(52,211,153,.35);
+    animation: winnerCardPop .5s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes winnerCardPop {
+    from { transform:scale(.4) rotate(-12deg); opacity:0; }
+    to   { transform:scale(1) rotate(0); opacity:1; }
+  }
+  .winner-card-name { font-size: 30px; font-weight: 900; color: white; letter-spacing:.03em; }
+  .winner-card-seat { font-size: 11px; color: rgba(255,255,255,.6); margin-top: 4px; }
+
+  /* Controls bar */
+  .lottery-controls {
+    display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+    border-top: 1px solid rgba(255,255,255,.08); flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .count-ctrl {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,.07); padding: 7px 14px; border-radius: 10px;
+  }
+  .count-ctrl-label { font-size: 13px; color: rgba(255,255,255,.6); }
+  .cnt-btn {
+    width: 28px; height: 28px; border-radius: 6px; border: none;
+    background: rgba(255,255,255,.14); color: white; font-size: 16px;
+    font-weight: 800; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; transition: background .12s; line-height: 1;
+  }
+  .cnt-btn:hover { background: rgba(255,255,255,.25); }
+  .cnt-btn:disabled { opacity: .25; cursor: not-allowed; }
+  .cnt-val { font-size: 20px; font-weight: 900; min-width: 34px; text-align: center; }
+  .cnt-max { font-size: 12px; color: rgba(255,255,255,.4); }
+  .cnt-all {
+    padding: 4px 9px; font-size: 11px; border-radius: 6px; border: none;
+    background: rgba(255,255,255,.12); color: rgba(255,255,255,.7); cursor: pointer;
+    transition: background .12s; font-weight: 700;
+  }
+  .cnt-all:hover { background: rgba(255,255,255,.22); }
+
+  .lottery-spacer { flex: 1; }
+
+  /* Group result */
+  .group-stage {
+    flex: 1; overflow-y: auto; padding: 20px 24px; background: #0A1020;
+  }
+  .group-hint { text-align:center; color:rgba(255,255,255,.3); padding:60px 0; font-size:14px; }
+
+  .group-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+
+  .grp-card {
+    background: #1E293B; border-radius: 12px; padding: 14px;
+    border: 2px solid #2D3F55;
+    animation: grpCardIn .4s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes grpCardIn {
+    from { transform:scale(.55) translateY(20px); opacity:0; }
+    to   { transform:scale(1) translateY(0); opacity:1; }
+  }
+  .grp-card-title {
+    font-size: 12px; font-weight: 800; color: white;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  }
+  .grp-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .grp-count { color:rgba(255,255,255,.35); font-weight:400; }
+  .grp-names { display:flex; flex-direction:column; gap:3px; }
+  .grp-name {
+    font-size: 12px; color: rgba(255,255,255,.75);
+    padding: 3px 7px; border-radius: 5px;
+    background: rgba(255,255,255,.05);
+  }
+
+  /* ─── END LOTTERY ─── */
+
+  /* ─── SCORE SYSTEM ─── */
+  .seat-score {
+    position: absolute; bottom: 3px; right: 5px;
+    font-size: 11px; font-weight: 800; padding: 0 5px;
+    border-radius: 99px; line-height: 1.7;
+    pointer-events: none;
+  }
+  .seat-score.pos { background: #D1FAE5; color: #065F46; }
+  .seat-score.neg { background: #FEE2E2; color: #991B1B; }
+  .seat-score.zero { display: none; }
+
+  /* Score mode cursor & outline */
+  body.score-add .seat-card:not(.empty) { cursor: crosshair; outline: 2px dashed #10B981; outline-offset: 1px; }
+  body.score-sub .seat-card:not(.empty) { cursor: crosshair; outline: 2px dashed #EF4444; outline-offset: 1px; }
+  body.score-add .seat-card:not(.empty):hover,
+  body.score-sub .seat-card:not(.empty):hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+  /* Score buttons visibility */
+  #btnScoreAdd, #btnScoreSub, #btnScoreReset { display: none; }
+  body.view-mode.has-class #btnScoreAdd,
+  body.view-mode.has-class #btnScoreSub,
+  body.view-mode.has-class #btnScoreReset { display: inline-flex; }
+
+  /* Settings modal textarea */
+  #settingsConfigTA {
+    width: 100%; height: 140px; padding: 8px; border: 1px solid var(--slate-200);
+    border-radius: var(--radius-sm); font-size: 12px; font-family: monospace;
+    resize: vertical; outline: none; transition: border-color .15s;
+  }
+  #settingsConfigTA:focus { border-color: var(--blue-500); }
+  .conn-status { font-size: 12px; padding: 6px 10px; border-radius: var(--radius-sm); margin-bottom: 8px; }
+  .conn-status.ok { background: #D1FAE5; color: #065F46; }
+  .conn-status.err { background: #FEE2E2; color: #991B1B; }
+</style>
+</head>
+<body class="view-mode">
+
+<!-- LOADING SCREEN -->
+<div id="loadingScreen">
+  <div class="spinner"></div>
+  <p id="loadingMsg">連接 Firebase 中…</p>
+</div>
+
+<!-- SETUP SCREEN -->
+<div id="setupScreen" style="display:none;">
+  <div class="setup-card">
+    <h1>🪑 座位系統設定</h1>
+    <p>首次使用請貼上您的 Firebase 專案設定（JSON 格式）</p>
+    <textarea id="setupConfigTA" placeholder='{
+  "apiKey": "...",
+  "authDomain": "...",
+  "projectId": "...",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "..."
+}'></textarea>
+    <div class="setup-hint">請前往 Firebase Console → 專案設定 → 您的應用程式 → Firebase SDK snippet，複製 firebaseConfig 物件內容。</div>
+    <div style="margin-top:16px; display:flex; gap:8px; align-items:center;">
+      <button class="btn btn-primary" id="setupSaveBtn" style="flex:1;">測試並儲存</button>
+      <span id="setupStatus" style="font-size:12px;color:var(--slate-500);"></span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;">
+  <!-- HEADER -->
+  <div id="header">
+    <div class="brand">🪑 <span>座位系統</span></div>
+    <div class="divider-v"></div>
+
+    <!-- Class selector -->
+    <div class="class-selector-wrap">
+      <button id="classDropdownBtn">
+        <span id="classNameLabel">載入中…</span>
+        <span class="arrow">▾</span>
+      </button>
+      <div class="class-dropdown" id="classDropdown">
+        <div id="classDropdownList"></div>
+        <div class="class-dropdown-sep"></div>
+        <div class="class-dropdown-item" id="btnAddClass">➕ 新增班級</div>
+        <div class="class-dropdown-item danger" id="btnDeleteClass">🗑 刪除此班級</div>
+      </div>
+    </div>
+
+    <span class="badge-edit">✏️ 編輯中</span>
+    <span class="badge-locked" id="badgeLocked">🔒 座位已固定</span>
+    <div class="spacer"></div>
+
+    <button class="btn btn-ghost" id="btnLottery">🎲 抽籤</button>
+    <button class="btn btn-ghost" id="btnEdit">✏️ 修改座位</button>
+    <button class="btn btn-success" id="btnSave">✅ 確認座位</button>
+    <button class="btn btn-ghost" id="btnCancel">↩ 取消</button>
+    <div class="divider-v"></div>
+    <button class="btn btn-ghost btn-icon" id="btnSettings" title="設定">⚙️</button>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- GRID AREA -->
+    <div id="gridArea">
+      <div id="emptyState">
+        <div class="es-icon">🏫</div>
+        <p>尚無班級，請新增班級開始使用</p>
+        <button class="btn btn-primary" id="btnAddClassEmpty">➕ 新增班級</button>
+      </div>
+      <div id="gridWrap" style="display:none; width:100%; display:flex; flex-direction:column; align-items:center;">
+        <div class="blackboard" id="blackboardLabel">黑板 ▪ 講台</div>
+        <div id="seatGrid"></div>
+      </div>
+    </div>
+
+    <!-- EDIT PANEL -->
+    <div id="editPanel">
+      <div class="panel-inner">
+        <!-- Grid config -->
+        <div class="panel-section">
+          <div class="panel-title">座位排列</div>
+          <div class="grid-config-row">
+            <label>列</label>
+            <input type="number" class="num-input" id="cfgRows" min="1" max="20" value="5">
+            <label>× 行</label>
+            <input type="number" class="num-input" id="cfgCols" min="1" max="20" value="6">
+            <button class="btn btn-ghost" id="btnApplyGrid" style="font-size:12px; padding:5px 10px;">套用排列</button>
+          </div>
+        </div>
+
+        <!-- Student list -->
+        <div class="panel-section" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+          <div class="stu-list-header">
+            <div class="panel-title" style="margin-bottom:0;">學生名單</div>
+            <span class="count-badge" id="stuCount">0</span>
+          </div>
+
+          <div class="stu-add-row">
+            <input type="text" id="stuAddInput" placeholder="輸入學生姓名…">
+            <button class="btn btn-primary" id="btnAddStu" style="padding:6px 10px;">➕</button>
+          </div>
+
+          <span class="batch-toggle" id="batchToggle">批量匯入</span>
+          <div id="batchArea">
+            <textarea id="batchTA" placeholder="每行一個姓名&#10;例：&#10;王小明&#10;李小美&#10;張大華"></textarea>
+            <button class="btn btn-ghost" id="btnBatchImport" style="width:100%; margin-top:6px; font-size:12px;">匯入</button>
+          </div>
+
+          <div id="stuListScroll" style="flex:1; overflow-y:auto;">
+            <div id="stuList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── LOTTERY MODAL ─── -->
+<div class="overlay" id="lotteryOverlay">
+  <div class="lottery-modal">
+
+    <!-- Header -->
+    <div class="lottery-header">
+      <h2>🎲 抽籤模式</h2>
+      <div class="lottery-tabs">
+        <button class="ltab active" id="ltabDraw"  onclick="switchLTab('draw')">個人抽籤</button>
+        <button class="ltab"        id="ltabGroup" onclick="switchLTab('group')">隨機分組</button>
+      </div>
+      <button class="btn btn-ghost" style="color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.15);" onclick="closeLottery()">✕ 關閉</button>
+    </div>
+
+    <!-- ══ DRAW TAB ══ -->
+    <div id="lTabDraw" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+      <div class="lottery-stage">
+        <div class="lottery-grid" id="lotteryGrid"></div>
+        <!-- Winner overlay (inside stage) -->
+        <div class="winner-reveal" id="winnerReveal">
+          <div class="winner-emoji">🎉</div>
+          <div class="winner-cards" id="winnerCards"></div>
+        </div>
+      </div>
+      <div class="lottery-controls">
+        <div class="count-ctrl">
+          <span class="count-ctrl-label">抽取</span>
+          <button class="cnt-btn" id="drawDec" onclick="changeDrawCount(-1)">−</button>
+          <span class="cnt-val" id="drawCountVal">1</span>
+          <button class="cnt-btn" id="drawInc" onclick="changeDrawCount(1)">＋</button>
+          <span class="count-ctrl-label">人</span>
+          <span class="cnt-max" id="drawMax">/ 0</span>
+          <button class="cnt-all" onclick="setDrawAll()">全部</button>
+        </div>
+        <div class="lottery-spacer"></div>
+        <button class="btn btn-ghost" id="btnRedraw"
+          style="display:none;color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.2);"
+          onclick="resetDrawMode()">🔄 重新抽</button>
+        <button class="btn btn-primary" id="btnStartDraw" onclick="startDraw()">🎲 開始抽籤</button>
+      </div>
+    </div>
+
+    <!-- ══ GROUP TAB ══ -->
+    <div id="lTabGroup" style="flex:1;display:none;flex-direction:column;min-height:0;overflow:hidden;">
+      <div class="group-stage">
+        <div class="group-hint" id="groupHint">設定組數後，點擊「分組」開始</div>
+        <div class="group-grid" id="groupGrid" style="display:none;"></div>
+      </div>
+      <div class="lottery-controls">
+        <div class="count-ctrl">
+          <span class="count-ctrl-label">分成</span>
+          <button class="cnt-btn" id="grpDec" onclick="changeGrpCount(-1)">−</button>
+          <span class="cnt-val" id="grpCountVal">4</span>
+          <button class="cnt-btn" id="grpInc" onclick="changeGrpCount(1)">＋</button>
+          <span class="count-ctrl-label">組</span>
+        </div>
+        <div class="lottery-spacer"></div>
+        <button class="btn btn-success" id="btnApplyGrp"
+          style="display:none;" onclick="applyGroupsToSeats()">✔ 套用組別至座位</button>
+        <button class="btn btn-primary" id="btnStartGrp" onclick="startGroupDraw()">🎲 分組</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toastContainer"></div>
+
+<!-- ─── MODALS ─── -->
+
+<!-- New Class Modal -->
+<div class="overlay" id="newClassOverlay">
+  <div class="modal">
+    <div class="modal-title">➕ 新增班級</div>
+    <div class="modal-body">
+      <div class="form-group">
+        <div class="form-label">班級名稱</div>
+        <input type="text" class="form-input" id="newClassName" placeholder="例：303班">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">列數（rows）</div>
+          <input type="number" class="form-input" id="newClassRows" value="5" min="1" max="20">
+        </div>
+        <div class="form-group">
+          <div class="form-label">行數（cols）</div>
+          <input type="number" class="form-input" id="newClassCols" value="6" min="1" max="20">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="newClassCancel">取消</button>
+      <button class="btn btn-primary" id="newClassCreate">建立班級</button>
+    </div>
+  </div>
+</div>
+
+<!-- Seat Edit Modal -->
+<div class="overlay" id="seatEditOverlay">
+  <div class="modal">
+    <div class="modal-title" id="seatModalTitle">座位設定</div>
+    <div class="modal-body">
+      <div class="form-group">
+        <div class="form-label">學生</div>
+        <select class="seat-modal-stu-sel" id="seatModalStuSel"></select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">小組</div>
+        <div class="group-grid" id="seatModalGroupGrid"></div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">組長</div>
+        <div class="leader-toggle" id="leaderToggle">
+          <span class="crown">👑</span>
+          <span class="toggle-label">設為組長</span>
+          <div class="toggle-pill"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="seatModalClear" style="margin-right:auto;">清除座位</button>
+      <button class="btn btn-ghost" id="seatModalCancel">取消</button>
+      <button class="btn btn-primary" id="seatModalConfirm">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <div class="modal-title">⚙️ 設定</div>
+    <div class="modal-body">
+      <div id="connStatusEl" class="conn-status ok">● Firebase 已連接</div>
+      <div class="form-group">
+        <div class="form-label">Firebase 設定（JSON）</div>
+        <textarea id="settingsConfigTA" spellcheck="false"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="settingsCancel">關閉</button>
+      <button class="btn btn-primary" id="settingsApply">套用並重新載入</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal" style="min-width:280px; max-width:340px;">
+    <div class="modal-title" id="confirmTitle">確認</div>
+    <div style="color:var(--slate-600); font-size:13px; margin-bottom:4px;" id="confirmMsg"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="confirmNo">取消</button>
+      <button class="btn btn-danger" id="confirmYes">確認</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+const LS_CONFIG_KEY  = 'seat_fb_config';
+const LS_CLASS_KEY   = 'seat_last_class';
+const COLL = 'classes';
+
+const GROUPS = [
+  { name:'無',    bg:'#F8FAFC', border:'#CBD5E1', text:'#64748B', dot:'#CBD5E1' },
+  { name:'第1組', bg:'#DBEAFE', border:'#3B82F6', text:'#1E3A8A', dot:'#3B82F6' },
+  { name:'第2組', bg:'#D1FAE5', border:'#10B981', text:'#064E3B', dot:'#10B981' },
+  { name:'第3組', bg:'#FEF3C7', border:'#F59E0B', text:'#78350F', dot:'#F59E0B' },
+  { name:'第4組', bg:'#FEE2E2', border:'#EF4444', text:'#7F1D1D', dot:'#EF4444' },
+  { name:'第5組', bg:'#EDE9FE', border:'#8B5CF6', text:'#4C1D95', dot:'#8B5CF6' },
+  { name:'第6組', bg:'#FFEDD5', border:'#F97316', text:'#7C2D12', dot:'#F97316' },
+  { name:'第7組', bg:'#E0F2FE', border:'#0EA5E9', text:'#0C4A6E', dot:'#0EA5E9' },
+  { name:'第8組', bg:'#FCE7F3', border:'#EC4899', text:'#831843', dot:'#EC4899' },
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let db = null;
+let allClasses = [];        // [{id, name}] lightweight list
+let currentClassId = null;
+let classData = null;       // full current class document
+let draftData  = null;      // in-edit copy
+let isEditing  = false;
+
+let seatModalKey  = null;   // which seat key is open
+let seatModalGroupIdx = 0;
+let seatModalLeader   = false;
+
+let dragStuId  = null;      // student being dragged from list
+let dragSeatKey = null;     // seat being dragged from grid
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+const deepClone = o => JSON.parse(JSON.stringify(o));
+const genId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const seatKey = (r,c) => `r${r}c${c}`;
+
+function toast(msg, type='info', dur=2800) {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  requestAnimationFrame(() => { requestAnimationFrame(() => el.classList.add('show')); });
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, dur);
+}
+
+function showConfirm(title, msg) {
+  return new Promise(resolve => {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMsg').textContent   = msg;
+    openOverlay('confirmOverlay');
+    const yes = document.getElementById('confirmYes');
+    const no  = document.getElementById('confirmNo');
+    const cleanup = (val) => {
+      closeOverlay('confirmOverlay');
+      yes.replaceWith(yes.cloneNode(true));
+      no.replaceWith(no.cloneNode(true));
+      resolve(val);
+    };
+    document.getElementById('confirmYes').onclick = () => cleanup(true);
+    document.getElementById('confirmNo').onclick  = () => cleanup(false);
+  });
+}
+
+function openOverlay(id)  { document.getElementById(id).classList.add('open'); }
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+
+function setMode(editing) {
+  isEditing = editing;
+  const hasClass = !!currentClassId;
+  document.body.className = (editing ? 'edit-mode' : 'view-mode') + (hasClass ? ' has-class' : '');
+}
+
+// Normalize seats so every r*c key exists
+function normalizeSeats(data) {
+  const seats = data.seats || {};
+  for (let r=0; r<data.rows; r++)
+    for (let c=0; c<data.cols; c++) {
+      const k = seatKey(r,c);
+      if (!(k in seats)) seats[k] = null;
+    }
+  // Remove out-of-bounds keys
+  for (const k of Object.keys(seats)) {
+    const m = k.match(/^r(\d+)c(\d+)$/);
+    if (!m || +m[1]>=data.rows || +m[2]>=data.cols) delete seats[k];
+  }
+  data.seats = seats;
+}
+
+// Find seat key for a student
+function studentSeatKey(data, stuId) {
+  for (const [k,v] of Object.entries(data.seats||{}))
+    if (v === stuId) return k;
+  return null;
+}
+
+function seatLabel(r,c) { return `第${r+1}排第${c+1}座`; }
+
+// ─── FIREBASE INIT ────────────────────────────────────────────────────────────
+async function initFirebase(config) {
+  try {
+    if (firebase.apps.length) {
+      firebase.apps.forEach(a => a.delete());
+    }
+  } catch(e){}
+  firebase.initializeApp(config);
+  db = firebase.firestore();
+  // Test connection
+  await db.collection(COLL).limit(1).get();
+  return true;
+}
+
+// ─── 內建 Firebase 設定（直接寫死，開啟即自動連線）─────────────────────────
+const BUILT_IN_CONFIG = {
+  apiKey: "AIzaSyB28FgCqXfPO7QYTCweBBRFDKGR-cBn5mI",
+  authDomain: "my-classroom-2c773.firebaseapp.com",
+  projectId: "my-classroom-2c773",
+  storageBucket: "my-classroom-2c773.firebasestorage.app",
+  messagingSenderId: "48274078682",
+  appId: "1:48274078682:web:614be912955b7d63fa1ee3",
+  measurementId: "G-YQRNPNC3BQ"
+};
+
+// ─── STARTUP ─────────────────────────────────────────────────────────────────
+async function startup() {
+  showLoadingScreen('連接 Firebase 中…');
+  try {
+    // 優先使用手動設定（⚙️），否則用內建設定
+    const storedRaw = localStorage.getItem(LS_CONFIG_KEY);
+    const cfg = storedRaw ? JSON.parse(storedRaw) : BUILT_IN_CONFIG;
+    await initFirebase(cfg);
+    if (!storedRaw) localStorage.setItem(LS_CONFIG_KEY, JSON.stringify(cfg));
+    hideLoadingScreen();
+    showApp();
+    await loadAllClasses();
+  } catch(e) {
+    console.error(e);
+    hideLoadingScreen();
+    showSetupScreen();
+    toast('Firebase 連接失敗，請重新設定', 'error');
+  }
+}
+
+function showLoadingScreen(msg='載入中…') {
+  document.getElementById('loadingMsg').textContent = msg;
+  document.getElementById('loadingScreen').style.display = 'flex';
+  document.getElementById('setupScreen').style.display  = 'none';
+  document.getElementById('app').style.display          = 'none';
+}
+function hideLoadingScreen() {
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';   // 確保 app 恢復顯示
+}
+function showSetupScreen()   {
+  hideLoadingScreen();
+  document.getElementById('setupScreen').style.display = 'flex';
+  document.getElementById('app').style.display         = 'none';
+}
+function showApp()           {
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('setupScreen').style.display  = 'none';
+  document.getElementById('app').style.display          = 'flex';
+}
+
+// ─── CLASS LIST ──────────────────────────────────────────────────────────────
+async function loadAllClasses() {
+  const snap = await db.collection(COLL).orderBy('createdAt','asc').get();
+  allClasses = snap.docs.map(d => ({ id: d.id, name: d.data().name }));
+  renderClassDropdown();
+
+  const lastId = localStorage.getItem(LS_CLASS_KEY);
+  if (allClasses.length === 0) {
+    showEmptyState();
+    return;
+  }
+  const found = allClasses.find(c => c.id === lastId);
+  await loadClass(found ? found.id : allClasses[0].id);
+}
+
+function renderClassDropdown() {
+  const list = document.getElementById('classDropdownList');
+  list.innerHTML = '';
+  for (const cls of allClasses) {
+    const item = document.createElement('div');
+    item.className = 'class-dropdown-item' + (cls.id===currentClassId ? ' active':'');
+    item.dataset.id = cls.id;
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = cls.name;
+    nameSpan.style.flex = '1';
+
+    // Rename button
+    const renBtn = document.createElement('span');
+    renBtn.textContent = '✏️';
+    renBtn.style.cssText = 'font-size:11px; opacity:.5; cursor:pointer; padding:0 2px;';
+    renBtn.title = '重新命名';
+    renBtn.onclick = (e) => { e.stopPropagation(); startRename(item, nameSpan, cls); };
+
+    item.appendChild(nameSpan);
+    item.appendChild(renBtn);
+    item.onclick = () => switchClass(cls.id);
+    list.appendChild(item);
+  }
+}
+
+function startRename(item, nameSpan, cls) {
+  const input = document.createElement('input');
+  input.className = 'rename-input';
+  input.value = cls.name;
+  item.replaceChild(input, nameSpan);
+  input.focus();
+  input.select();
+
+  const commit = async () => {
+    const newName = input.value.trim();
+    if (newName && newName !== cls.name) {
+      await db.collection(COLL).doc(cls.id).update({ name: newName });
+      cls.name = newName;
+      allClasses.find(c=>c.id===cls.id).name = newName;
+      if (currentClassId === cls.id) {
+        document.getElementById('classNameLabel').textContent = newName;
+        if (classData) classData.name = newName;
+        if (draftData) draftData.name = newName;
+      }
+      toast('班級名稱已更新', 'success');
+    }
+    item.replaceChild(nameSpan, input);
+    nameSpan.textContent = cls.name;
+    renderClassDropdown();
+  };
+
+  input.onblur  = commit;
+  input.onkeydown = e => { if(e.key==='Enter') commit(); if(e.key==='Escape') { item.replaceChild(nameSpan, input); } };
+}
+
+async function switchClass(id) {
+  if (id === currentClassId) { closeClassDropdown(); return; }
+  if (isEditing) {
+    const ok = await showConfirm('未儲存的變更', '目前有未儲存的變更，確定要離開？');
+    if (!ok) { closeClassDropdown(); return; }
+    setMode(false);
+  }
+  closeClassDropdown();
+  await loadClass(id);
+}
+
+async function loadClass(id) {
+  try {
+    const doc = await db.collection(COLL).doc(id).get();
+    if (!doc.exists) { toast('找不到班級', 'error'); return; }
+    classData = { id: doc.id, ...doc.data() };
+    currentClassId = id;
+    localStorage.setItem(LS_CLASS_KEY, id);
+    normalizeSeats(classData);
+    draftData = null;
+    if (isEditing) setMode(false);   // 切換班級時離開編輯模式
+
+    document.getElementById('classNameLabel').textContent = classData.name;
+    renderClassDropdown();
+    showGridUI();
+    renderGrid();
+    renderStuList();
+    syncPanelInputs();
+  } catch(e) {
+    console.error(e);
+    toast('載入班級失敗：' + e.message, 'error');
+  }
+}
+
+function showGridUI() {
+  document.getElementById('emptyState').classList.remove('show');
+  document.getElementById('gridWrap').style.display = 'flex';
+  document.body.classList.add('has-class');
+}
+
+function showEmptyState() {
+  document.getElementById('emptyState').classList.add('show');
+  document.getElementById('gridWrap').style.display = 'none';
+  document.getElementById('classNameLabel').textContent = '（無班級）';
+  document.body.classList.remove('has-class');
+}
+
+function syncPanelInputs() {
+  const d = draftData || classData;
+  if (!d) return;
+  document.getElementById('cfgRows').value = d.rows;
+  document.getElementById('cfgCols').value = d.cols;
+}
+
+function activeData() { return isEditing ? draftData : classData; }
+
+// ─── GRID RENDER ─────────────────────────────────────────────────────────────
+function renderGrid() {
+  const d = activeData(); if (!d) return;
+  const grid = document.getElementById('seatGrid');
+  grid.style.gridTemplateColumns = `repeat(${d.cols}, 90px)`;
+  grid.style.gridTemplateRows    = `repeat(${d.rows}, 72px)`;
+  grid.innerHTML = '';
+
+  for (let r=0; r<d.rows; r++) {
+    for (let c=0; c<d.cols; c++) {
+      const k = seatKey(r,c);
+      const stuId = d.seats[k];
+      const stu   = stuId ? d.students[stuId] : null;
+      const card  = buildSeatCard(r, c, k, stuId, stu, d);
+      grid.appendChild(card);
+    }
+  }
+}
+
+function buildSeatCard(r, c, k, stuId, stu, d) {
+  const card = document.createElement('div');
+  card.className = 'seat-card' + (stuId && stu ? '' : ' empty');
+  card.dataset.key = k;
+
+  const numEl = document.createElement('div');
+  numEl.className = 'seat-num';
+  numEl.textContent = `${r+1}-${c+1}`;
+  card.appendChild(numEl);
+
+  if (stuId && stu) {
+    const gIdx = stu.group || 0;
+    const g = GROUPS[gIdx] || GROUPS[0];
+    card.style.background   = g.bg;
+    card.style.borderColor  = g.border;
+
+    if (stu.isLeader) {
+      const crown = document.createElement('div');
+      crown.className = 'seat-leader';
+      crown.textContent = '👑';
+      card.appendChild(crown);
+    }
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'seat-name';
+    nameEl.style.color = g.text;
+    nameEl.textContent = stu.name;
+    card.appendChild(nameEl);
+
+    if (gIdx > 0) {
+      const tag = document.createElement('div');
+      tag.className = 'seat-group-tag';
+      tag.textContent = g.name;
+      tag.style.background = g.border + '22';
+      tag.style.color = g.text;
+      card.appendChild(tag);
+    }
+
+    // Drag from seat (edit mode)
+    card.draggable = true;
+    card.addEventListener('dragstart', e => {
+      if (!isEditing) { e.preventDefault(); return; }
+      dragStuId  = stuId;
+      dragSeatKey = k;
+      e.dataTransfer.effectAllowed = 'move';
+      card.style.opacity = '.4';
+    });
+    card.addEventListener('dragend', () => { card.style.opacity = ''; dragStuId=null; dragSeatKey=null; });
+  } else {
+    const ph = document.createElement('div');
+    ph.className = 'seat-placeholder';
+    ph.textContent = '+';
+    card.appendChild(ph);
+  }
+
+  // Drop target
+  card.addEventListener('dragover', e => {
+    if (!isEditing) return;
+    e.preventDefault(); e.dataTransfer.dropEffect='move';
+    card.classList.add('drag-over');
+  });
+  card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+  card.addEventListener('drop', e => {
+    e.preventDefault(); card.classList.remove('drag-over');
+    if (!isEditing) return;
+    handleDrop(k);
+  });
+
+  // Click to open modal in edit mode
+  card.addEventListener('click', () => { if (isEditing) openSeatModal(k); });
+  return card;
+}
+
+function handleDrop(targetKey) {
+  const d = draftData;
+  if (!d) return;
+
+  if (dragSeatKey !== null) {
+    // Swap two seats
+    const a = d.seats[dragSeatKey];
+    const b = d.seats[targetKey];
+    d.seats[dragSeatKey] = b;
+    d.seats[targetKey]   = a;
+  } else if (dragStuId !== null) {
+    // Assign student from list
+    // Unassign from current seat first
+    for (const k of Object.keys(d.seats)) {
+      if (d.seats[k] === dragStuId) d.seats[k] = null;
+    }
+    d.seats[targetKey] = dragStuId;
+  }
+
+  dragStuId = null; dragSeatKey = null;
+  renderGrid(); renderStuList();
+}
+
+// ─── STUDENT LIST ─────────────────────────────────────────────────────────────
+function renderStuList() {
+  const d = activeData(); if (!d) return;
+  const container = document.getElementById('stuList');
+  container.innerHTML = '';
+
+  // Collect all students with seat info
+  // Sort: unassigned first, then seated; within each, by name
+  const entries = Object.entries(d.students || {}).map(([id, stu]) => {
+    const key = studentSeatKey(d, id);
+    return { id, stu, key };
+  });
+
+  entries.sort((a, b) => {
+    const aSeated = a.key !== null ? 1 : 0;
+    const bSeated = b.key !== null ? 1 : 0;
+    if (aSeated !== bSeated) return aSeated - bSeated;
+    return a.stu.name.localeCompare(b.stu.name, 'zh-TW');
+  });
+
+  document.getElementById('stuCount').textContent = entries.length;
+
+  for (const { id, stu, key } of entries) {
+    const gIdx = stu.group || 0;
+    const g = GROUPS[gIdx] || GROUPS[0];
+    const isSeated = key !== null;
+
+    const item = document.createElement('div');
+    item.className = 'stu-item' + (isSeated ? ' seated' : '');
+    item.dataset.id = id;
+
+    if (!isSeated && isEditing) {
+      item.draggable = true;
+      item.addEventListener('dragstart', e => {
+        dragStuId = id; dragSeatKey = null;
+        e.dataTransfer.effectAllowed = 'move';
+        item.classList.add('dragging');
+      });
+      item.addEventListener('dragend', () => { item.classList.remove('dragging'); dragStuId=null; });
+    }
+
+    const dot = document.createElement('div');
+    dot.className = 'stu-dot';
+    dot.style.background = g.dot;
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'stu-name';
+    nameEl.textContent = stu.name + (stu.isLeader ? ' 👑':'');
+
+    const seatLabel_ = document.createElement('div');
+    seatLabel_.className = 'stu-seat-label';
+    if (isSeated) {
+      const m = key.match(/^r(\d+)c(\d+)$/);
+      seatLabel_.textContent = m ? `${+m[1]+1}排${+m[2]+1}座` : '';
+    }
+
+    const delBtn = document.createElement('div');
+    delBtn.className = 'stu-del';
+    delBtn.textContent = '✕';
+    delBtn.title = '刪除學生';
+    delBtn.onclick = (e) => { e.stopPropagation(); removeStu(id); };
+
+    item.appendChild(dot);
+    item.appendChild(nameEl);
+    item.appendChild(seatLabel_);
+    if (isEditing) item.appendChild(delBtn);
+    container.appendChild(item);
+  }
+}
+
+function removeStu(id) {
+  const d = draftData; if (!d) return;
+  delete d.students[id];
+  for (const k of Object.keys(d.seats)) {
+    if (d.seats[k] === id) d.seats[k] = null;
+  }
+  renderGrid(); renderStuList();
+  toast('已刪除學生', 'info');
+}
+
+// ─── SEAT MODAL ───────────────────────────────────────────────────────────────
+function openSeatModal(key) {
+  const d = draftData; if (!d) return;
+  seatModalKey = key;
+
+  const m = key.match(/^r(\d+)c(\d+)$/);
+  document.getElementById('seatModalTitle').textContent =
+    m ? `座位設定 — 第${+m[1]+1}排第${+m[2]+1}座` : '座位設定';
+
+  const stuId = d.seats[key];
+  const stu   = stuId ? d.students[stuId] : null;
+
+  // Student selector
+  const sel = document.getElementById('seatModalStuSel');
+  sel.innerHTML = '<option value="">（空座位）</option>';
+  const unassigned = Object.entries(d.students||{})
+    .filter(([id]) => studentSeatKey(d, id) === null || id === stuId)
+    .sort(([,a],[,b]) => a.name.localeCompare(b.name,'zh-TW'));
+  for (const [id, s] of unassigned) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = s.name;
+    if (id === stuId) opt.selected = true;
+    sel.appendChild(opt);
+  }
+
+  // Group grid
+  seatModalGroupIdx = stu ? (stu.group || 0) : 0;
+  buildGroupGrid();
+
+  // Leader
+  seatModalLeader = stu ? !!stu.isLeader : false;
+  updateLeaderToggle();
+
+  // Clear button
+  document.getElementById('seatModalClear').style.display = stuId ? 'inline-flex' : 'none';
+
+  openOverlay('seatEditOverlay');
+}
+
+function buildGroupGrid() {
+  const grid = document.getElementById('seatModalGroupGrid');
+  grid.innerHTML = '';
+  GROUPS.forEach((g, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'group-btn' + (i===seatModalGroupIdx ? ' selected' : '');
+    btn.textContent = g.name;
+    btn.style.background   = g.bg;
+    btn.style.borderColor  = i===seatModalGroupIdx ? '#3B82F6' : g.border;
+    btn.style.color        = g.text;
+    btn.onclick = () => { seatModalGroupIdx = i; buildGroupGrid(); };
+    grid.appendChild(btn);
+  });
+}
+
+function updateLeaderToggle() {
+  const el = document.getElementById('leaderToggle');
+  el.classList.toggle('active', seatModalLeader);
+}
+
+function confirmSeatModal() {
+  const d = draftData; if (!d) return;
+  const sel   = document.getElementById('seatModalStuSel');
+  const selId = sel.value || null;
+
+  // Unassign previous occupant from this seat
+  const prevId = d.seats[seatModalKey];
+  if (prevId && prevId !== selId) {
+    // just leave student unassigned (seat becomes null later)
+  }
+
+  // If the new student was seated elsewhere, unassign that seat
+  if (selId) {
+    const oldKey = studentSeatKey(d, selId);
+    if (oldKey && oldKey !== seatModalKey) d.seats[oldKey] = null;
+  }
+
+  d.seats[seatModalKey] = selId;
+
+  // Update student properties if a student is assigned
+  if (selId && d.students[selId]) {
+    d.students[selId].group    = seatModalGroupIdx;
+    d.students[selId].isLeader = seatModalLeader;
+  }
+
+  closeOverlay('seatEditOverlay');
+  renderGrid(); renderStuList();
+}
+
+// ─── SAVE / CANCEL ────────────────────────────────────────────────────────────
+async function saveClass() {
+  if (!draftData) return;
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true;
+  btn.textContent = '儲存中…';
+  try {
+    const payload = deepClone(draftData);
+    delete payload.id;
+    payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    await db.collection(COLL).doc(currentClassId).update(payload);
+    classData = deepClone(draftData);
+    draftData = null;
+    const cls = allClasses.find(c=>c.id===currentClassId);
+    if (cls) cls.name = classData.name;
+    setMode(false);
+    renderGrid(); renderStuList(); renderClassDropdown();
+    toast('座位已確認儲存 ✓', 'success');
+  } catch(e) {
+    console.error(e);
+    toast('儲存失敗：'+e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ 確認座位';
+  }
+}
+
+function cancelEdit() {
+  draftData = null;
+  setMode(false);
+  renderGrid(); renderStuList(); syncPanelInputs();
+  toast('已取消', 'info');
+}
+
+function enterEditMode() {
+  if (!classData) return;
+  draftData = deepClone(classData);
+  setMode(true);
+  syncPanelInputs();
+  renderGrid(); renderStuList();
+}
+
+// ─── CLASS MANAGEMENT ────────────────────────────────────────────────────────
+async function createClass(name, rows, cols) {
+  const btn = document.getElementById('newClassCreate');
+  btn.disabled = true;
+  btn.textContent = '建立中…';
+  try {
+    if (!db) throw new Error('Firebase 未連線，請重新整理頁面');
+
+    const seats = {};
+    for (let r=0; r<rows; r++)
+      for (let c=0; c<cols; c++)
+        seats[seatKey(r,c)] = null;
+
+    const ref = await db.collection(COLL).add({
+      name, rows, cols, students: {}, seats,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // 成功後才關 modal
+    closeOverlay('newClassOverlay');
+
+    classData = { id: ref.id, name, rows, cols, students: {}, seats };
+    currentClassId = ref.id;
+    localStorage.setItem(LS_CLASS_KEY, ref.id);
+    draftData = null;
+    allClasses.push({ id: ref.id, name });
+
+    document.getElementById('classNameLabel').textContent = name;
+    renderClassDropdown();
+    showGridUI();
+    renderGrid();
+    renderStuList();
+    syncPanelInputs();
+    enterEditMode();
+    toast('班級已建立，可以開始新增學生 🎉', 'success');
+  } catch(e) {
+    console.error(e);
+    // 根據錯誤類型給出具體提示
+    let msg = e.message || '未知錯誤';
+    if (msg.includes('permission-denied') || msg.includes('Missing or insufficient'))
+      msg = '權限不足！請至 Firebase Console → Firestore → 規則，將規則改為允許讀寫';
+    else if (msg.includes('not-found') || msg.includes('NOT_FOUND'))
+      msg = '找不到資料庫！請確認 Firestore Database 已建立';
+    toast('建立失敗：' + msg, 'error', 6000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '建立班級';
+  }
+}
+
+async function deleteCurrentClass() {
+  if (!currentClassId) return;
+  const ok = await showConfirm('刪除班級', `確定要刪除「${classData?.name}」？此操作無法復原。`);
+  if (!ok) return;
+  try {
+    await db.collection(COLL).doc(currentClassId).delete();
+    allClasses = allClasses.filter(c => c.id !== currentClassId);
+    currentClassId = null; classData = null; draftData = null;
+    setMode(false);
+    if (allClasses.length > 0) {
+      renderClassDropdown();
+      await loadClass(allClasses[0].id);
+    } else {
+      renderClassDropdown();
+      showEmptyState();
+    }
+    toast('班級已刪除', 'success');
+  } catch(e) {
+    console.error(e);
+    toast('刪除失敗：'+e.message, 'error');
+  }
+}
+
+// ─── ADD STUDENT ─────────────────────────────────────────────────────────────
+function addStudent(name) {
+  name = name.trim(); if (!name) return;
+  const d = draftData; if (!d) return;
+  const id = genId();
+  d.students[id] = { name, group: 0, isLeader: false };
+  renderStuList();
+}
+
+function batchImport() {
+  const raw = document.getElementById('batchTA').value;
+  const names = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+  names.forEach(n => addStudent(n));
+  document.getElementById('batchTA').value = '';
+  document.getElementById('batchArea').classList.remove('open');
+  toast(`已匯入 ${names.length} 位學生`, 'success');
+}
+
+// ─── APPLY GRID ──────────────────────────────────────────────────────────────
+function applyGrid() {
+  const d = draftData; if (!d) return;
+  const rows = Math.max(1, Math.min(20, +document.getElementById('cfgRows').value || 5));
+  const cols = Math.max(1, Math.min(20, +document.getElementById('cfgCols').value || 6));
+  d.rows = rows; d.cols = cols;
+  normalizeSeats(d);
+  renderGrid();
+  toast('排列已套用', 'info');
+}
+
+// ─── CLASS DROPDOWN ──────────────────────────────────────────────────────────
+let dropdownOpen = false;
+function openClassDropdown()  { document.getElementById('classDropdown').classList.add('open'); dropdownOpen=true; }
+function closeClassDropdown() { document.getElementById('classDropdown').classList.remove('open'); dropdownOpen=false; }
+function toggleClassDropdown() { dropdownOpen ? closeClassDropdown() : openClassDropdown(); }
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.class-selector-wrap')) closeClassDropdown();
+  if (!e.target.closest('#settingsOverlay') && !e.target.closest('#btnSettings') &&
+      document.getElementById('settingsOverlay').classList.contains('open')) {
+    // keep open if clicking inside
+  }
+});
+
+// ─── SETTINGS ────────────────────────────────────────────────────────────────
+function openSettings() {
+  const raw = localStorage.getItem(LS_CONFIG_KEY) || '{}';
+  let pretty;
+  try { pretty = JSON.stringify(JSON.parse(raw), null, 2); } catch(e) { pretty = raw; }
+  document.getElementById('settingsConfigTA').value = pretty;
+  const status = document.getElementById('connStatusEl');
+  if (db) { status.className='conn-status ok'; status.textContent='● Firebase 已連接'; }
+  else     { status.className='conn-status err'; status.textContent='✕ 未連接'; }
+  openOverlay('settingsOverlay');
+}
+
+// ─── EVENT WIRING ─────────────────────────────────────────────────────────────
+document.getElementById('classDropdownBtn').onclick = toggleClassDropdown;
+document.getElementById('btnAddClass').onclick = () => { closeClassDropdown(); showNewClassModal(); };
+document.getElementById('btnDeleteClass').onclick = () => { closeClassDropdown(); deleteCurrentClass(); };
+document.getElementById('btnAddClassEmpty').onclick = () => showNewClassModal();
+
+document.getElementById('btnEdit').onclick   = () => enterEditMode();
+document.getElementById('btnSave').onclick   = () => saveClass();
+document.getElementById('btnCancel').onclick = () => cancelEdit();
+document.getElementById('btnSettings').onclick = openSettings;
+
+document.getElementById('btnApplyGrid').onclick = applyGrid;
+
+document.getElementById('stuAddInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    addStudent(e.target.value);
+    e.target.value = '';
+  }
+});
+document.getElementById('btnAddStu').onclick = () => {
+  const inp = document.getElementById('stuAddInput');
+  addStudent(inp.value); inp.value = '';
+};
+
+document.getElementById('batchToggle').onclick = () => {
+  document.getElementById('batchArea').classList.toggle('open');
+};
+document.getElementById('btnBatchImport').onclick = batchImport;
+
+// New class modal
+function showNewClassModal() {
+  document.getElementById('newClassName').value = '';
+  document.getElementById('newClassRows').value = '5';
+  document.getElementById('newClassCols').value = '6';
+  openOverlay('newClassOverlay');
+  setTimeout(() => document.getElementById('newClassName').focus(), 200);
+}
+document.getElementById('newClassCancel').onclick = () => closeOverlay('newClassOverlay');
+document.getElementById('newClassCreate').onclick = async () => {
+  const name = document.getElementById('newClassName').value.trim();
+  if (!name) { toast('請輸入班級名稱','error'); return; }
+  const rows = +document.getElementById('newClassRows').value || 5;
+  const cols = +document.getElementById('newClassCols').value || 6;
+  // 注意：不先關 modal，等建立成功後才關
+  await createClass(name, rows, cols);
+};
+document.getElementById('newClassName').addEventListener('keydown', e => {
+  if (e.key==='Enter') document.getElementById('newClassCreate').click();
+});
+
+// Seat modal
+document.getElementById('seatModalCancel').onclick  = () => closeOverlay('seatEditOverlay');
+document.getElementById('seatModalConfirm').onclick = () => confirmSeatModal();
+document.getElementById('seatModalClear').onclick   = () => {
+  const d = draftData; if (!d) return;
+  d.seats[seatModalKey] = null;
+  closeOverlay('seatEditOverlay');
+  renderGrid(); renderStuList();
+};
+document.getElementById('leaderToggle').onclick = () => {
+  seatModalLeader = !seatModalLeader;
+  updateLeaderToggle();
+};
+
+// Settings modal
+document.getElementById('settingsCancel').onclick = () => closeOverlay('settingsOverlay');
+document.getElementById('settingsApply').onclick  = () => {
+  const raw = document.getElementById('settingsConfigTA').value.trim();
+  try {
+    JSON.parse(raw);
+    localStorage.setItem(LS_CONFIG_KEY, raw);
+    location.reload();
+  } catch(e) { toast('JSON 格式錯誤', 'error'); }
+};
+
+// Setup screen
+document.getElementById('setupSaveBtn').onclick = async () => {
+  const raw = document.getElementById('setupConfigTA').value.trim();
+  const statusEl = document.getElementById('setupStatus');
+  const btn = document.getElementById('setupSaveBtn');
+
+  if (!raw) {
+    statusEl.textContent = '請先貼上 Firebase 設定內容';
+    return;
+  }
+
+  statusEl.textContent = '測試中…';
+  btn.disabled = true;
+  try {
+    const cfg = JSON.parse(raw);
+    if (!cfg.apiKey || !cfg.projectId) throw new Error('缺少必要欄位（apiKey / projectId）');
+    await initFirebase(cfg);
+    localStorage.setItem(LS_CONFIG_KEY, JSON.stringify(cfg));
+    statusEl.textContent = '✅ 連接成功，載入中…';
+    setTimeout(() => location.reload(), 800);
+  } catch(e) {
+    statusEl.textContent = '失敗：' + (e.message || 'JSON 格式或設定錯誤');
+    btn.disabled = false;
+  }
+};
+
+// Close overlays on backdrop click
+['newClassOverlay','seatEditOverlay','settingsOverlay','confirmOverlay'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target.id === id) {
+      if (id === 'confirmOverlay') return; // handled by buttons
+      closeOverlay(id);
+    }
+  });
+});
+
+// Keyboard: Escape closes top-most overlay
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  for (const id of ['seatEditOverlay','newClassOverlay','settingsOverlay','confirmOverlay']) {
+    if (document.getElementById(id).classList.contains('open')) {
+      if (id !== 'confirmOverlay') closeOverlay(id);
+      return;
+    }
+  }
+});
+
+// ─── LOTTERY ─────────────────────────────────────────────────────────────────
+let drawCount   = 1;
+let grpCount    = 4;
+let lotteryTab  = 'draw';
+let drawAnimating = false;
+let drawTimer   = null;
+let lotteryWinners = [];
+let lotteryGroups  = [];
+
+/* Shuffle (Fisher-Yates) */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/* Get all students that are currently seated */
+function getOccupiedStudents() {
+  const d = classData; if (!d) return [];
+  return Object.entries(d.seats)
+    .filter(([, id]) => id && d.students[id])
+    .map(([k, id]) => ({ seatKey: k, id, ...d.students[id] }))
+    .sort((a, b) => {
+      const ma = a.seatKey.match(/r(\d+)c(\d+)/);
+      const mb = b.seatKey.match(/r(\d+)c(\d+)/);
+      return (+ma[1] * 100 + +ma[2]) - (+mb[1] * 100 + +mb[2]);
+    });
+}
+
+/* Open lottery modal */
+function openLottery() {
+  const occupied = getOccupiedStudents();
+  if (!occupied.length) { toast('目前沒有已安排座位的學生', 'error'); return; }
+  drawCount = 1;
+  grpCount  = Math.min(4, occupied.length);
+  syncDrawCountUI(occupied.length);
+  syncGrpCountUI(occupied.length);
+  renderLotteryGrid();
+  resetDrawMode();
+  resetGroupMode();
+  switchLTab('draw');
+  openOverlay('lotteryOverlay');
+}
+
+function closeLottery() {
+  clearTimeout(drawTimer);
+  drawAnimating = false;
+  closeOverlay('lotteryOverlay');
+}
+
+/* Tab switch */
+function switchLTab(tab) {
+  lotteryTab = tab;
+  document.getElementById('ltabDraw').className  = 'ltab' + (tab==='draw'  ? ' active' : '');
+  document.getElementById('ltabGroup').className = 'ltab' + (tab==='group' ? ' active' : '');
+  document.getElementById('lTabDraw').style.display  = tab==='draw'  ? 'flex' : 'none';
+  document.getElementById('lTabGroup').style.display = tab==='group' ? 'flex' : 'none';
+}
+
+/* ── Count controls ── */
+function changeDrawCount(delta) {
+  const max = getOccupiedStudents().length;
+  drawCount = Math.max(1, Math.min(max, drawCount + delta));
+  syncDrawCountUI(max);
+}
+function setDrawAll() {
+  const max = getOccupiedStudents().length;
+  drawCount = max;
+  syncDrawCountUI(max);
+}
+function syncDrawCountUI(max) {
+  document.getElementById('drawCountVal').textContent = drawCount;
+  document.getElementById('drawMax').textContent = `/ ${max}`;
+  document.getElementById('drawDec').disabled = drawCount <= 1;
+  document.getElementById('drawInc').disabled = drawCount >= max;
+}
+
+function changeGrpCount(delta) {
+  const max = Math.min(8, getOccupiedStudents().length);
+  grpCount = Math.max(2, Math.min(max, grpCount + delta));
+  syncGrpCountUI(getOccupiedStudents().length);
+}
+function syncGrpCountUI(total) {
+  document.getElementById('grpCountVal').textContent = grpCount;
+  document.getElementById('grpDec').disabled = grpCount <= 2;
+  document.getElementById('grpInc').disabled = grpCount >= Math.min(8, total);
+}
+
+/* ── Lottery grid (mirrors real grid) ── */
+function renderLotteryGrid() {
+  const d = classData; if (!d) return;
+  const grid = document.getElementById('lotteryGrid');
+  grid.style.gridTemplateColumns = `repeat(${d.cols}, 78px)`;
+  grid.innerHTML = '';
+  for (let r = 0; r < d.rows; r++) {
+    for (let c = 0; c < d.cols; c++) {
+      const k   = seatKey(r, c);
+      const id  = d.seats[k];
+      const stu = id ? d.students[id] : null;
+      const el  = document.createElement('div');
+      el.className  = 'lot-card' + (stu ? '' : ' lot-empty');
+      el.dataset.key = k;
+      el.textContent = stu ? stu.name : '';
+      grid.appendChild(el);
+    }
+  }
+}
+
+function getLotEl(key) {
+  return document.querySelector(`.lot-card[data-key="${key}"]`);
+}
+
+/* ── Draw: reset ── */
+function resetDrawMode() {
+  clearTimeout(drawTimer);
+  drawAnimating = false;
+  document.getElementById('winnerReveal').classList.remove('show');
+  document.getElementById('btnStartDraw').style.display = 'inline-flex';
+  document.getElementById('btnRedraw').style.display    = 'none';
+  document.querySelectorAll('.lot-card').forEach(el =>
+    el.classList.remove('lot-active', 'lot-winner'));
+}
+
+/* ── Draw: start animation ── */
+function startDraw() {
+  if (drawAnimating) return;
+  const occupied = getOccupiedStudents();
+  if (!occupied.length) return;
+
+  drawAnimating = true;
+  document.getElementById('btnStartDraw').style.display = 'none';
+  document.getElementById('winnerReveal').classList.remove('show');
+  document.querySelectorAll('.lot-card').forEach(el =>
+    el.classList.remove('lot-active', 'lot-winner'));
+
+  /* Pick winners upfront */
+  lotteryWinners = shuffle([...occupied]).slice(0, drawCount);
+
+  /* Collect visible occupied card elements in seat order */
+  const cardEls = occupied.map(s => getLotEl(s.seatKey)).filter(Boolean);
+
+  let idx     = 0;
+  let speed   = 55;   // ms
+  let elapsed = 0;
+  const TOTAL = 3400; // ms total animation
+
+  const step = () => {
+    cardEls.forEach(el => el.classList.remove('lot-active'));
+    cardEls[idx % cardEls.length].classList.add('lot-active');
+    idx++;
+    elapsed += speed;
+
+    if (elapsed < TOTAL) {
+      const progress = elapsed / TOTAL;
+      speed = Math.round(55 + Math.pow(progress, 1.9) * 460);
+      drawTimer = setTimeout(step, speed);
+    } else {
+      drawTimer = setTimeout(() => finishDraw(cardEls), 120);
+    }
+  };
+  step();
+}
+
+/* ── Draw: finish ── */
+function finishDraw(cardEls) {
+  drawAnimating = false;
+  cardEls.forEach(el => el.classList.remove('lot-active'));
+
+  /* Highlight winner seats */
+  lotteryWinners.forEach(w => {
+    const el = getLotEl(w.seatKey);
+    if (el) el.classList.add('lot-winner');
+  });
+
+  /* Show winner reveal after pulse settles */
+  setTimeout(showWinnerReveal, 750);
+}
+
+/* ── Draw: winner reveal overlay ── */
+function showWinnerReveal() {
+  const container = document.getElementById('winnerCards');
+  container.innerHTML = '';
+
+  lotteryWinners.forEach((w, i) => {
+    const m   = w.seatKey.match(/r(\d+)c(\d+)/);
+    const loc = m ? `第${+m[1]+1}排第${+m[2]+1}座` : '';
+    const card = document.createElement('div');
+    card.className = 'winner-card';
+    card.style.animationDelay = `${i * 110}ms`;
+    card.innerHTML = `
+      <div class="winner-card-name">${w.name}</div>
+      <div class="winner-card-seat">${loc}</div>`;
+    container.appendChild(card);
+  });
+
+  document.getElementById('winnerReveal').classList.add('show');
+  document.getElementById('btnRedraw').style.display = 'inline-flex';
+}
+
+/* ── Group draw ── */
+function resetGroupMode() {
+  lotteryGroups = [];
+  document.getElementById('groupGrid').style.display = 'none';
+  document.getElementById('groupHint').style.display = 'block';
+  document.getElementById('btnApplyGrp').style.display = 'none';
+}
+
+function startGroupDraw() {
+  const occupied = getOccupiedStudents();
+  if (!occupied.length) { toast('沒有學生可以分組', 'error'); return; }
+
+  const shuffled = shuffle([...occupied]);
+  lotteryGroups = Array.from({ length: grpCount }, () => []);
+  shuffled.forEach((s, i) => lotteryGroups[i % grpCount].push(s));
+
+  renderGroupResult();
+}
+
+function renderGroupResult() {
+  const grid = document.getElementById('groupGrid');
+  grid.innerHTML = '';
+  grid.style.display = 'grid';
+  document.getElementById('groupHint').style.display  = 'none';
+  document.getElementById('btnApplyGrp').style.display = 'inline-flex';
+
+  lotteryGroups.forEach((members, i) => {
+    const g = GROUPS[(i % (GROUPS.length - 1)) + 1]; // cycle groups 1-8
+    const card = document.createElement('div');
+    card.className = 'grp-card';
+    card.style.cssText = `border-color:${g.border}; animation-delay:${i*70}ms`;
+
+    const title = document.createElement('div');
+    title.className = 'grp-card-title';
+    title.innerHTML = `
+      <span class="grp-dot" style="background:${g.dot}"></span>
+      第${i+1}組
+      <span class="grp-count">(${members.length}人)</span>`;
+
+    const names = document.createElement('div');
+    names.className = 'grp-names';
+    members.forEach(m => {
+      const el = document.createElement('div');
+      el.className = 'grp-name';
+      el.textContent = m.name + (m.isLeader ? ' 👑' : '');
+      names.appendChild(el);
+    });
+
+    card.appendChild(title);
+    card.appendChild(names);
+    grid.appendChild(card);
+  });
+}
+
+/* Apply lottery groups as seat group colors */
+function applyGroupsToSeats() {
+  if (!lotteryGroups.length || !classData) return;
+
+  /* Enter edit mode if not already */
+  if (!isEditing) enterEditMode();
+
+  lotteryGroups.forEach((members, i) => {
+    const grpIdx = (i % (GROUPS.length - 1)) + 1;
+    members.forEach(m => {
+      if (draftData?.students[m.id]) {
+        draftData.students[m.id].group = grpIdx;
+      }
+    });
+  });
+
+  renderGrid();
+  renderStuList();
+  closeLottery();
+  toast('組別已套用！別忘了按「儲存」。', 'success');
+}
+
+/* Wire lottery button */
+document.getElementById('btnLottery').onclick = openLottery;
+
+/* Close lottery on backdrop click */
+document.getElementById('lotteryOverlay').addEventListener('click', e => {
+  if (e.target.id === 'lotteryOverlay') closeLottery();
+});
+
+// ─── KICK OFF ────────────────────────────────────────────────────────────────
+startup();
+</script>
+</body>
+</html>

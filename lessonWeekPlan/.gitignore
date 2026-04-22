@@ -1,0 +1,16 @@
+# API Key 與環境變數（絕對不能上傳 GitHub）
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# 測試輸出
+test_output.docx
+doc_text.txt
+
+# 系統檔案
+.DS_Store
+Thumbs.db

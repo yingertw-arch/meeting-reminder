@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "homework-tracker",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5173", "--directory", "C:/Users/HSPS/Desktop/Claude Code"],
+      "port": 5173
+    },
+    {
+      "name": "homework-tracker-app",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5174", "--directory", "C:/Users/HSPS/Desktop/homework-tracker"],
+      "port": 5174
+    }
+  ]
+}

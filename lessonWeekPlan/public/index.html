@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>海山國小 — 課程計畫生成工具</title>
+<style>
+  :root {
+    --primary: #1a5fa8;
+    --primary-light: #3a7fc8;
+    --primary-pale: #e8f0fb;
+    --accent: #2e9e6e;
+    --accent-pale: #e6f6f0;
+    --border: #d0d7e3;
+    --text: #1e2a38;
+    --text-muted: #5a6a7a;
+    --bg: #f5f7fb;
+    --card: #ffffff;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(26,95,168,.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans TC', '微軟正黑體', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+
+  /* ── Header ── */
+  header { background: var(--primary); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  header svg { width: 32px; height: 32px; flex-shrink: 0; }
+  header h1 { font-size: 18px; font-weight: 700; letter-spacing: .05em; }
+  header p { font-size: 12px; opacity: .8; margin-top: 2px; }
+
+  /* ── Step bar ── */
+  .steps { display: flex; justify-content: center; padding: 20px 16px 8px; gap: 0; }
+  .step { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 180px; position: relative; }
+  .step:not(:last-child)::after {
+    content: ''; position: absolute; top: 16px; left: 55%; width: 90%; height: 2px;
+    background: var(--border); z-index: 0;
+  }
+  .step.done:not(:last-child)::after { background: var(--primary); }
+  .step-num {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--border); color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px;
+    position: relative; z-index: 1; transition: all .3s;
+  }
+  .step.active .step-num { background: var(--primary); color: #fff; box-shadow: 0 0 0 4px var(--primary-pale); }
+  .step.done .step-num { background: var(--accent); color: #fff; }
+  .step-label { font-size: 11px; color: var(--text-muted); margin-top: 5px; text-align: center; white-space: nowrap; }
+  .step.active .step-label { color: var(--primary); font-weight: 600; }
+  .step.done .step-label { color: var(--accent); }
+
+  /* ── Main container ── */
+  .container { max-width: 960px; margin: 0 auto; padding: 16px 16px 40px; }
+
+  /* ── Card ── */
+  .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px 32px; margin-bottom: 20px; }
+  .card h2 { font-size: 17px; font-weight: 700; color: var(--primary); margin-bottom: 18px; padding-bottom: 10px; border-bottom: 2px solid var(--primary-pale); }
+
+  /* ── Form ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+  input[type=text], input[type=number], select, textarea {
+    border: 1.5px solid var(--border); border-radius: 7px; padding: 8px 11px;
+    font-size: 14px; font-family: inherit; color: var(--text); background: #fff;
+    transition: border-color .2s, box-shadow .2s;
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-pale);
+  }
+  textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
+  .hint { font-size: 11px; color: var(--text-muted); }
+
+  /* ── Subject grid ── */
+  .subject-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 8px; }
+  .subject-option { display: none; }
+
+  /* Teaching style tags */
+  .style-tag {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border: 1.5px solid var(--border); border-radius: 20px;
+    cursor: pointer; font-size: 13px; user-select: none; transition: all .2s;
+  }
+  .style-tag:hover { border-color: var(--primary); background: var(--primary-pale); }
+  .style-tag input[type=checkbox] { display: none; }
+  .style-tag:has(input:checked) {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+  }
+  .subject-label {
+    display: block; text-align: center; padding: 8px 10px; border: 1.5px solid var(--border);
+    border-radius: 7px; cursor: pointer; font-size: 13px; transition: all .2s; user-select: none;
+  }
+  .subject-option:checked + .subject-label {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+  }
+
+  /* ── Buttons ── */
+  .btn-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .btn {
+    padding: 9px 22px; border-radius: 7px; border: none; cursor: pointer;
+    font-size: 14px; font-weight: 600; font-family: inherit; transition: all .2s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-light); }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-secondary:hover { background: #c0cad8; }
+  .btn-success { background: var(--accent); color: #fff; }
+  .btn-success:hover { background: #267a55; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Loading ── */
+  .loading-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(255,255,255,.85);
+    z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  }
+  .loading-overlay.show { display: flex; }
+  .spinner { width: 48px; height: 48px; border: 4px solid var(--primary-pale); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 15px; color: var(--primary); font-weight: 600; }
+  .loading-sub { font-size: 12px; color: var(--text-muted); }
+
+  /* ── Weekly table ── */
+  .table-wrapper { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: var(--primary); color: #fff; padding: 8px 6px; text-align: center; font-weight: 600; white-space: nowrap; }
+  th.sub { background: var(--primary-light); }
+  td { border: 1px solid var(--border); padding: 4px; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfd; }
+  td textarea {
+    width: 100%; min-height: 60px; border: none; background: transparent;
+    resize: vertical; font-size: 12px; padding: 2px; font-family: inherit;
+    line-height: 1.5;
+  }
+  td textarea:focus { outline: 1px solid var(--primary); border-radius: 3px; }
+  .week-num { font-weight: 700; text-align: center; color: var(--primary); font-size: 13px; }
+
+  /* ── Goals section ── */
+  .goals-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .goal-item { display: flex; gap: 8px; align-items: flex-start; }
+  .goal-num { background: var(--primary); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; margin-top: 6px; }
+  .goal-item input { flex: 1; }
+
+  /* ── Literacy grid ── */
+  .literacy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .literacy-item { border: 1.5px solid var(--border); border-radius: 7px; padding: 10px; }
+  .literacy-item.checked { border-color: var(--primary); background: var(--primary-pale); }
+  .literacy-check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .literacy-check input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+  .literacy-check span { font-size: 13px; font-weight: 600; }
+  .literacy-content { margin-top: 6px; display: none; }
+  .literacy-item.checked .literacy-content { display: block; }
+  .literacy-content input { font-size: 12px; padding: 5px 8px; }
+
+  /* ── Preview card ── */
+  .preview-section { border: 1.5px solid var(--border); border-radius: 7px; padding: 14px; margin-bottom: 14px; }
+  .preview-section h3 { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+  .preview-section p, .preview-section li { font-size: 13px; line-height: 1.6; }
+  .preview-section ul { padding-left: 18px; }
+
+  /* ── Alert ── */
+  .alert { padding: 10px 14px; border-radius: 7px; font-size: 13px; margin-bottom: 12px; }
+  .alert-error { background: #fef0f0; border: 1px solid #f5c6c6; color: #c0392b; }
+  .alert-info { background: var(--primary-pale); border: 1px solid #bfd4f5; color: var(--primary); }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .form-grid, .form-grid.cols3 { grid-template-columns: 1fr; }
+    .literacy-grid { grid-template-columns: 1fr; }
+    .card { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">AI 正在生成中，請稍候…</div>
+  <div class="loading-sub" id="loadingSub">這可能需要 20–60 秒</div>
+</div>
+
+<header>
+  <svg viewBox="0 0 40 40" fill="none">
+    <rect width="40" height="40" rx="8" fill="rgba(255,255,255,.2)"/>
+    <path d="M8 30V14l12-8 12 8v16H24v-8h-8v8H8z" fill="white"/>
+  </svg>
+  <div style="flex:1;">
+    <h1>海山國小課程計畫生成工具</h1>
+    <p>海山國民小學部定課程計畫生成工具</p>
+  </div>
+  <!-- API Key 狀態顯示 -->
+  <div id="apiKeyStatus" style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="showApiKeyModal()" title="點擊設定 API Key">
+    <span id="apiKeyDot" style="width:10px;height:10px;border-radius:50%;background:#e74c3c;flex-shrink:0;"></span>
+    <span id="apiKeyLabel" style="font-size:12px; opacity:.9;">未設定 API Key</span>
+  </div>
+</header>
+
+<!-- API Key Modal -->
+<div id="apiKeyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:12px; padding:28px 32px; max-width:500px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,.2);">
+    <h2 style="font-size:16px; color:var(--primary); margin-bottom:14px;">🔑 設定 AI 服務</h2>
+
+    <!-- Provider tabs -->
+    <div style="display:flex; gap:0; border:1.5px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:18px;">
+      <button id="tabGemini" onclick="switchProvider('gemini')"
+        style="flex:1; padding:10px; border:none; cursor:pointer; font-size:13px; font-weight:600; transition:all .2s; background:var(--primary); color:#fff;">
+        ✨ Google Gemini<br><span style="font-size:10px; font-weight:400;">免費額度（推薦）</span>
+      </button>
+      <button id="tabAnthropic" onclick="switchProvider('anthropic')"
+        style="flex:1; padding:10px; border:none; cursor:pointer; font-size:13px; font-weight:600; transition:all .2s; background:#f5f7fb; color:var(--text-muted);">
+        🤖 Anthropic Claude<br><span style="font-size:10px; font-weight:400;">按量計費</span>
+      </button>
+    </div>
+
+    <!-- Gemini section -->
+    <div id="sectionGemini">
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:10px; line-height:1.6;">
+        取得免費 Key：前往 <strong>aistudio.google.com</strong> → 點「Get API key」→ 複製貼入
+      </p>
+      <div style="display:flex; gap:8px; margin-bottom:4px;">
+        <input type="password" id="geminiKeyInput" placeholder="AIzaSy…"
+               style="flex:1; padding:9px 12px; border:1.5px solid var(--border); border-radius:7px; font-size:13px; font-family:monospace;"
+               onkeydown="if(event.key==='Enter') saveApiKey()">
+        <button onclick="toggleKeyVisibility('geminiKeyInput')" class="btn btn-secondary" style="padding:9px 12px; font-size:16px;">👁</button>
+      </div>
+    </div>
+
+    <!-- Anthropic section -->
+    <div id="sectionAnthropic" style="display:none;">
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:10px; line-height:1.6;">
+        取得 Key：前往 <strong>console.anthropic.com → API Keys</strong> → 建立並複製
+      </p>
+      <div style="display:flex; gap:8px; margin-bottom:4px;">
+        <input type="password" id="anthropicKeyInput" placeholder="sk-ant-api03-…"
+               style="flex:1; padding:9px 12px; border:1.5px solid var(--border); border-radius:7px; font-size:13px; font-family:monospace;"
+               onkeydown="if(event.key==='Enter') saveApiKey()">
+        <button onclick="toggleKeyVisibility('anthropicKeyInput')" class="btn btn-secondary" style="padding:9px 12px; font-size:16px;">👁</button>
+      </div>
+    </div>
+
+    <p style="font-size:11px; color:var(--text-muted); margin:10px 0 14px;">
+      🔒 Key 僅存在您的瀏覽器（localStorage），不會上傳至任何伺服器。清空後儲存即可刪除。
+    </p>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeApiKeyModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveApiKey()">儲存並使用</button>
+    </div>
+  </div>
+</div>
+
+<!-- Step indicator -->
+<div class="steps" id="stepBar">
+  <div class="step active" data-step="1">
+    <div class="step-num">1</div>
+    <div class="step-label">基本資料</div>
+  </div>
+  <div class="step" data-step="2">
+    <div class="step-num">2</div>
+    <div class="step-label">週次課程設計</div>
+  </div>
+  <div class="step" data-step="3">
+    <div class="step-num">3</div>
+    <div class="step-label">課程目標 & 素養</div>
+  </div>
+  <div class="step" data-step="4">
+    <div class="step-num">4</div>
+    <div class="step-label">確認 & 下載</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ── STEP 1: 基本資料 ── -->
+  <div id="step1" class="step-content">
+    <div class="card">
+      <h2>📋 步驟一：填寫課程基本資料</h2>
+      <div id="step1Error"></div>
+
+      <div class="form-grid cols3">
+        <div class="form-group">
+          <label>學年度 <span class="hint" id="yearHint"></span></label>
+          <input type="text" id="year" placeholder="例如：115">
+        </div>
+        <div class="form-group">
+          <label>年級</label>
+          <select id="grade">
+            <option value="一">一年級</option>
+            <option value="二">二年級</option>
+            <option value="三">三年級</option>
+            <option value="四">四年級</option>
+            <option value="五">五年級</option>
+            <option value="六">六年級</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>學期</label>
+          <select id="semester">
+            <option value="1">第一學期</option>
+            <option value="2">第二學期</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>設計者</label>
+          <input type="text" id="designer" placeholder="教師姓名">
+        </div>
+        <div class="form-group">
+          <label>每週節數</label>
+          <input type="number" id="periodsPerWeek" value="2" min="1" max="10">
+        </div>
+        <div class="form-group">
+          <label>實施週數 <span class="hint">（低中年級21週，高年級19週）</span></label>
+          <input type="number" id="weeks" value="21" min="1" max="40">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:18px">
+        <label>課程類別（科目）</label>
+        <div class="subject-grid">
+          <input type="radio" name="subject" id="s1" value="國語文" class="subject-option" checked>
+          <label for="s1" class="subject-label">國語文</label>
+
+          <input type="radio" name="subject" id="s2" value="閩南語文" class="subject-option">
+          <label for="s2" class="subject-label">閩南語文</label>
+
+          <input type="radio" name="subject" id="s3" value="客家語文" class="subject-option">
+          <label for="s3" class="subject-label">客家語文</label>
+
+          <input type="radio" name="subject" id="s4" value="英語文" class="subject-option">
+          <label for="s4" class="subject-label">英語文</label>
+
+          <input type="radio" name="subject" id="s5" value="數學" class="subject-option">
+          <label for="s5" class="subject-label">數學</label>
+
+          <input type="radio" name="subject" id="s5b" value="健康與體育" class="subject-option">
+          <label for="s5b" class="subject-label">健康與體育</label>
+
+          <input type="radio" name="subject" id="s6" value="生活課程" class="subject-option">
+          <label for="s6" class="subject-label">生活課程</label>
+
+          <input type="radio" name="subject" id="s7" value="社會" class="subject-option">
+          <label for="s7" class="subject-label">社會</label>
+
+          <input type="radio" name="subject" id="s8" value="自然科學" class="subject-option">
+          <label for="s8" class="subject-label">自然科學</label>
+
+          <input type="radio" name="subject" id="s9" value="藝術" class="subject-option">
+          <label for="s9" class="subject-label">藝術</label>
+
+          <input type="radio" name="subject" id="s10" value="綜合活動" class="subject-option">
+          <label for="s10" class="subject-label">綜合活動</label>
+
+          <input type="radio" name="subject" id="s11" value="台灣手語" class="subject-option">
+          <label for="s11" class="subject-label">台灣手語</label>
+        </div>
+      </div>
+
+      <!-- Mixed grade -->
+      <div class="form-group" style="margin-top:16px">
+        <label>是否實施混齡教學</label>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:6px;">
+          <label style="display:flex; align-items:center; gap:6px; font-weight:normal;">
+            <input type="checkbox" id="mixedGrade" style="width:16px;height:16px;accent-color:var(--primary)">
+            實施混齡教學
+          </label>
+          <input type="text" id="mixedGrades" placeholder="例如：五年級和六年級" style="width:200px;display:none;">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:18px">
+        <label>教學風格 <span class="hint">（可複選，AI 生成時會優先融入所選的教學媒介）</span></label>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;">
+          <label class="style-tag"><input type="checkbox" value="繪本／故事書"> 📚 繪本／故事書</label>
+          <label class="style-tag"><input type="checkbox" value="文學作品／小說"> 📖 文學作品／小說</label>
+          <label class="style-tag"><input type="checkbox" value="操作遊戲／實驗"> 🎲 操作遊戲／實驗</label>
+          <label class="style-tag"><input type="checkbox" value="影片／歌謠"> 🎬 影片／歌謠</label>
+          <label class="style-tag"><input type="checkbox" value="分組合作討論"> 👥 分組合作討論</label>
+          <label class="style-tag"><input type="checkbox" value="戶外教學／踏查"> 🌿 戶外教學／踏查</label>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:14px">
+        <label>課程大綱 / 課程描述 <span class="hint">（越詳細，AI 生成的課程內容越精確）</span></label>
+        <textarea id="outline" placeholder="請描述本學期課程的主要目標、教材範圍、教學重點等。例如：本學期國語文以南一版第X冊為主，含聽說讀寫基礎訓練，著重閱讀理解策略與寫作表達能力培養……"></textarea>
+
+        <!-- Image upload for outline -->
+        <div style="margin-top:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <label for="outlineImage" class="btn btn-secondary" style="cursor:pointer; font-size:13px; padding:7px 14px; margin:0;">
+            📷 上傳圖片讓 AI 辨識
+          </label>
+          <input type="file" id="outlineImage" accept="image/*" style="display:none" onchange="analyzeImage(this)">
+          <span class="hint" id="imageHint">可上傳教材封面、課綱截圖或手寫筆記，AI 將自動辨識並填入上方欄位</span>
+        </div>
+        <div id="imagePreviewArea" style="display:none; margin-top:10px;">
+          <div style="display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+            <div style="position:relative; display:inline-block;">
+              <img id="imagePreview" style="max-height:180px; max-width:100%; border-radius:7px; border:1.5px solid var(--border); display:block;">
+              <button onclick="clearImage()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:13px;line-height:1;">✕</button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; justify-content:center;">
+              <button class="btn btn-secondary" onclick="rotateImage(-90)" style="font-size:13px;padding:7px 14px;">↺ 向左旋轉</button>
+              <button class="btn btn-secondary" onclick="rotateImage(90)"  style="font-size:13px;padding:7px 14px;">↻ 向右旋轉</button>
+              <button class="btn btn-primary"    onclick="submitAnalyze()" style="font-size:13px;padding:7px 14px;">🔍 送出辨識</button>
+            </div>
+          </div>
+        </div>
+        <div id="analyzeStatus" style="font-size:12px; color:var(--primary); margin-top:6px; display:none;">
+          <span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span>AI 辨識中…
+        </div>
+        <canvas id="imageCanvas" style="display:none;"></canvas>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="goStep2()">下一步：AI 生成週次課程 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: 週次課程設計 ── -->
+  <div id="step2" class="step-content" style="display:none">
+
+    <!-- 課程架構 -->
+    <div class="card">
+      <h2>🗂 五、課程架構</h2>
+      <div class="alert alert-info" style="margin-bottom:12px;">
+        💡 AI 自動規劃的學期單元架構，可直接修改各欄位。
+      </div>
+      <div class="table-wrapper">
+        <table id="structureTable">
+          <thead>
+            <tr>
+              <th style="width:50px">單元</th>
+              <th style="width:140px">單元名稱</th>
+              <th style="width:80px">週次</th>
+              <th style="width:50px">週數</th>
+              <th>內容概述</th>
+              <th style="width:160px">對應素養指標</th>
+            </tr>
+          </thead>
+          <tbody id="structureTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 週次課程設計 -->
+    <div class="card" style="margin-top:16px;">
+      <h2>📅 七、素養導向教學規劃（可直接修改）</h2>
+      <div class="alert alert-info" style="margin-bottom:12px;">
+        💡 每週包含 4 步驟教學活動設計，可直接修改任何欄位。
+      </div>
+      <div id="step2Error"></div>
+      <div class="table-wrapper">
+        <table id="weeklyTable">
+          <thead>
+            <tr>
+              <th rowspan="2" style="width:45px">週次</th>
+              <th rowspan="2" style="width:80px">單元名稱</th>
+              <th colspan="2">學習重點</th>
+              <th rowspan="2" style="width:90px">素養指標</th>
+              <th rowspan="2" style="width:170px">1. 引起動機</th>
+              <th rowspan="2" style="width:170px">2. 自學／討論</th>
+              <th rowspan="2" style="width:170px">3. 發表／統整</th>
+              <th rowspan="2" style="width:170px">4. 練習／評量</th>
+              <th rowspan="2" style="width:80px">資源／策略</th>
+              <th rowspan="2" style="width:80px">評量方式</th>
+              <th rowspan="2" style="width:80px">融入議題</th>
+            </tr>
+            <tr>
+              <th class="sub" style="width:100px">學習表現</th>
+              <th class="sub" style="width:100px">學習內容</th>
+            </tr>
+          </thead>
+          <tbody id="weeklyTbody"></tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="showStep(1)">← 上一步</button>
+        <button class="btn btn-primary" onclick="goStep3()">下一步：生成課程目標 & 素養 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: 課程目標 & 核心素養 ── -->
+  <div id="step3" class="step-content" style="display:none">
+    <div class="card">
+      <h2>🎯 步驟三：課程目標 & 核心素養（可修改）</h2>
+      <div id="step3Error"></div>
+
+      <h3 style="font-size:14px;color:var(--primary);margin-bottom:10px;">三、課程目標</h3>
+      <ul class="goals-list" id="goalsList"></ul>
+      <button class="btn btn-secondary" onclick="addGoal()" style="margin-top:10px;font-size:13px;padding:6px 14px;">＋ 新增目標</button>
+
+      <h3 style="font-size:14px;color:var(--primary);margin:20px 0 10px;">四、核心素養 — 總綱核心素養</h3>
+      <div class="literacy-grid" id="literacyGrid"></div>
+
+      <h3 style="font-size:14px;color:var(--primary);margin:20px 0 8px;">四、核心素養 — 學習領域核心素養</h3>
+      <textarea id="domainLiteracy" style="width:100%;min-height:80px;" placeholder="依各領域綱要核心素養具體內涵填寫…"></textarea>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="showStep(2)">← 上一步</button>
+        <button class="btn btn-primary" onclick="showStep(4)">下一步：確認 & 下載 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 4: 確認 & 下載 ── -->
+  <div id="step4" class="step-content" style="display:none">
+    <div class="card">
+      <h2>✅ 步驟四：確認並下載課程計畫</h2>
+      <div id="step4Error"></div>
+
+      <div class="preview-section">
+        <h3>基本資料</h3>
+        <p id="previewBasic"></p>
+      </div>
+
+      <div class="preview-section">
+        <h3>課程目標</h3>
+        <ul id="previewGoals"></ul>
+      </div>
+
+      <div class="preview-section">
+        <h3>週次課程（前 3 週摘要）</h3>
+        <ul id="previewWeeks"></ul>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="showStep(3)">← 上一步</button>
+        <button class="btn btn-success" onclick="downloadDocx()">⬇ 下載課程計畫 Word 檔</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ── State ───────────────────────────────────────────────────────────────────
+const state = {
+  basicInfo: {},
+  outline: '',
+  weeklyPlan: [],
+  structure: [],
+  goals: [],
+  generalLiteracy: {},
+  domainLiteracy: ''
+};
+
+const LITERACY_LABELS = {
+  A1: 'A1 身心素質與自我精進',
+  A2: 'A2 系統思考與解決問題',
+  A3: 'A3 規劃執行與創新應變',
+  B1: 'B1 符號運用與溝通表達',
+  B2: 'B2 科技資訊與媒體素養',
+  B3: 'B3 藝術涵養與美感素養',
+  C1: 'C1 道德實踐與公民意識',
+  C2: 'C2 人際關係與團隊合作',
+  C3: 'C3 多元文化與國際理解'
+};
+
+// ── API Key 管理 ─────────────────────────────────────────────────────────────
+const LS_PROVIDER      = 'ai_provider';       // 'gemini' | 'anthropic'
+const LS_GEMINI_KEY    = 'gemini_api_key';
+const LS_ANTHROPIC_KEY = 'anthropic_api_key';
+
+function getProvider()    { return localStorage.getItem(LS_PROVIDER) || 'gemini'; }
+function getGeminiKey()   { return localStorage.getItem(LS_GEMINI_KEY) || ''; }
+function getAnthropicKey(){ return localStorage.getItem(LS_ANTHROPIC_KEY) || ''; }
+function getCurrentKey()  {
+  return getProvider() === 'gemini' ? getGeminiKey() : getAnthropicKey();
+}
+
+function apiFetch(url, options = {}) {
+  const key = getCurrentKey();
+  if (!key) return Promise.reject(new Error('尚未設定 API Key，請點右上角設定'));
+  options.headers = {
+    ...(options.headers || {}),
+    'X-API-Key': key,
+    'X-AI-Provider': getProvider()
+  };
+  return fetch(url, options);
+}
+
+function updateApiKeyStatus() {
+  const key = getCurrentKey();
+  const provider = getProvider();
+  const dot   = document.getElementById('apiKeyDot');
+  const label = document.getElementById('apiKeyLabel');
+  if (key) {
+    dot.style.background = '#2ecc71';
+    label.textContent = provider === 'gemini' ? '✨ Gemini 已設定' : '🤖 Claude 已設定';
+  } else {
+    dot.style.background = '#e74c3c';
+    label.textContent = '未設定 API Key';
+  }
+}
+
+let _currentProvider = 'gemini';
+
+function switchProvider(p) {
+  _currentProvider = p;
+  const isGemini = p === 'gemini';
+  document.getElementById('sectionGemini').style.display    = isGemini ? '' : 'none';
+  document.getElementById('sectionAnthropic').style.display = isGemini ? 'none' : '';
+  document.getElementById('tabGemini').style.background    = isGemini ? 'var(--primary)' : '#f5f7fb';
+  document.getElementById('tabGemini').style.color         = isGemini ? '#fff' : 'var(--text-muted)';
+  document.getElementById('tabAnthropic').style.background = isGemini ? '#f5f7fb' : 'var(--primary)';
+  document.getElementById('tabAnthropic').style.color      = isGemini ? 'var(--text-muted)' : '#fff';
+}
+
+function showApiKeyModal() {
+  const saved = getProvider();
+  _currentProvider = saved;
+  switchProvider(saved);
+  document.getElementById('geminiKeyInput').value    = getGeminiKey();
+  document.getElementById('anthropicKeyInput').value = getAnthropicKey();
+  document.getElementById('apiKeyModal').style.display = 'flex';
+}
+
+function closeApiKeyModal() {
+  document.getElementById('apiKeyModal').style.display = 'none';
+}
+
+function saveApiKey() {
+  const gKey = document.getElementById('geminiKeyInput').value.trim();
+  const aKey = document.getElementById('anthropicKeyInput').value.trim();
+  if (gKey) localStorage.setItem(LS_GEMINI_KEY, gKey);
+  else localStorage.removeItem(LS_GEMINI_KEY);
+  if (aKey) localStorage.setItem(LS_ANTHROPIC_KEY, aKey);
+  else localStorage.removeItem(LS_ANTHROPIC_KEY);
+  localStorage.setItem(LS_PROVIDER, _currentProvider);
+  updateApiKeyStatus();
+  closeApiKeyModal();
+}
+
+function toggleKeyVisibility(inputId) {
+  const el = document.getElementById(inputId);
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+// 點 modal 背景關閉
+document.getElementById('apiKeyModal').addEventListener('click', function(e) {
+  if (e.target === this) closeApiKeyModal();
+});
+
+// ── Utilities ────────────────────────────────────────────────────────────────
+function showLoading(text, sub) {
+  document.getElementById('loadingText').textContent = text || 'AI 正在生成中，請稍候…';
+  document.getElementById('loadingSub').textContent = sub || '這可能需要 20–60 秒';
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.remove('show');
+}
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = msg ? `<div class="alert alert-error">${msg}</div>` : '';
+}
+
+function showStep(n) {
+  [1,2,3,4].forEach(i => {
+    document.getElementById(`step${i}`).style.display = i === n ? '' : 'none';
+  });
+  document.querySelectorAll('.step[data-step]').forEach(el => {
+    const s = +el.dataset.step;
+    el.classList.toggle('active', s === n);
+    el.classList.toggle('done', s < n);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function getBasicInfo() {
+  const teachingStyles = [...document.querySelectorAll('.style-tag input:checked')]
+    .map(el => el.value);
+  return {
+    year: document.getElementById('year').value.trim(),
+    grade: document.getElementById('grade').value,
+    semester: document.getElementById('semester').value,
+    designer: document.getElementById('designer').value.trim(),
+    subject: document.querySelector('input[name=subject]:checked')?.value || '',
+    periodsPerWeek: document.getElementById('periodsPerWeek').value,
+    weeks: document.getElementById('weeks').value,
+    mixedGrade: document.getElementById('mixedGrade').checked,
+    mixedGrades: document.getElementById('mixedGrades').value.trim(),
+    teachingStyles
+  };
+}
+
+// ── Step 1 → Step 2 ──────────────────────────────────────────────────────────
+async function goStep2() {
+  showError('step1Error', '');
+  const info = getBasicInfo();
+  const outline = document.getElementById('outline').value.trim();
+
+  if (!info.subject) return showError('step1Error', '請選擇課程類別（科目）');
+  if (!outline) return showError('step1Error', '請填寫課程大綱，以便 AI 生成符合需求的課程內容');
+
+  state.basicInfo = info;
+  state.outline = outline;
+
+  const batches = Math.ceil(info.weeks / 7);
+  showLoading('AI 正在設計週次課程…', `共 ${info.weeks} 週，分 ${batches} 批生成，請耐心等候（約 ${batches * 20}–${batches * 40} 秒）`);
+
+  try {
+    const res = await apiFetch('/api/generate-weekly', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ basicInfo: info, outline })
+    });
+    if (!res.ok) throw new Error((await res.json()).error || '伺服器錯誤');
+    const data = await res.json();
+    state.weeklyPlan = data.weeks || [];
+    state.structure   = data.structure || [];
+    renderStructureTable(state.structure);
+    renderWeeklyTable(state.weeklyPlan);
+    hideLoading();
+    showStep(2);
+  } catch (e) {
+    hideLoading();
+    showError('step1Error', `生成失敗：${e.message}`);
+  }
+}
+
+function renderStructureTable(structure) {
+  const tbody = document.getElementById('structureTbody');
+  tbody.innerHTML = '';
+  console.log('renderStructureTable 收到資料：', structure);
+  if (!structure || structure.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:12px;">課程架構資料未能生成，請重新整理或檢查 API Key</td></tr>';
+    return;
+  }
+  structure.forEach((u, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="text-align:center;font-weight:700;color:var(--primary);">單元${u.unitNum}</td>
+      <td><textarea data-sidx="${idx}" data-field="unitTitle" style="min-height:40px;">${esc(u.unitTitle)}</textarea></td>
+      <td><textarea data-sidx="${idx}" data-field="weeks" style="min-height:40px;">${esc(u.weeks)}</textarea></td>
+      <td><textarea data-sidx="${idx}" data-field="weekCount" style="min-height:40px;">${esc(String(u.weekCount))}</textarea></td>
+      <td><textarea data-sidx="${idx}" data-field="description" style="min-height:40px;">${esc(u.description)}</textarea></td>
+      <td><textarea data-sidx="${idx}" data-field="competencyIndicators" style="min-height:40px;">${esc(u.competencyIndicators)}</textarea></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('textarea').forEach(ta => {
+    ta.addEventListener('input', () => {
+      state.structure[+ta.dataset.sidx][ta.dataset.field] = ta.value;
+    });
+  });
+}
+
+function renderWeeklyTable(weeks) {
+  const tbody = document.getElementById('weeklyTbody');
+  tbody.innerHTML = '';
+  weeks.forEach((w, idx) => {
+    const hasIssue = !!(w.issues && w.issues.trim());
+    const tr = document.createElement('tr');
+    if (hasIssue) tr.style.background = '#f0f5ff';
+
+    // 一般 textarea 欄位
+    const taCell = (field, val, minH='60px') =>
+      `<td><textarea data-idx="${idx}" data-field="${field}" style="min-height:${minH};">${esc(val||'')}</textarea></td>`;
+
+    // 步驟欄：顯示藍色 HTML，點擊展開編輯
+    const stepCell = (field, val) => {
+      const isBlue = (val||'').includes('{藍:');
+      const border = isBlue ? '2px solid #1a5fa8' : '1px solid var(--border)';
+      return `<td>
+        <div class="step-display" data-idx="${idx}" data-field="${field}"
+             style="min-height:60px; font-size:12px; line-height:1.6; padding:4px; border:${border}; border-radius:4px; cursor:pointer; white-space:pre-wrap;"
+             onclick="openStepEdit(this, ${idx}, '${field}')"
+             title="點擊編輯">${renderBlue(val||'')}</div>
+      </td>`;
+    };
+
+    // 融入議題欄：藍色標示
+    const issueCell = hasIssue
+      ? `<td style="color:#1a5fa8; font-weight:600; font-size:12px;">
+           <textarea data-idx="${idx}" data-field="issues" style="min-height:40px; color:#1a5fa8; font-weight:600;">${esc(w.issues)}</textarea>
+         </td>`
+      : taCell('issues', w.issues, '40px');
+
+    tr.innerHTML = `
+      <td class="week-num">第${w.weekNum}週</td>
+      ${taCell('unitTitle', w.unitTitle||w.unitTheme||'', '40px')}
+      ${taCell('learningPerformance', w.learningPerformance)}
+      ${taCell('learningContent', w.learningContent)}
+      ${taCell('competencyIndicator', w.competencyIndicator||'', '40px')}
+      ${stepCell('step1_motivation', w.step1_motivation||'')}
+      ${stepCell('step2_selfLearning', w.step2_selfLearning||'')}
+      ${stepCell('step3_presentation', w.step3_presentation||'')}
+      ${stepCell('step4_practice', w.step4_practice||'')}
+      ${taCell('resources', w.resources)}
+      ${taCell('assessment', w.assessment)}
+      ${issueCell}
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('textarea').forEach(ta => {
+    ta.addEventListener('input', () => {
+      state.weeklyPlan[+ta.dataset.idx][ta.dataset.field] = ta.value;
+    });
+  });
+}
+
+function esc(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// 將 {藍:文字} 標記轉為藍色 span（用於 div 顯示）
+function renderBlue(s) {
+  return (s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\{藍:(.*?)\}/g, '<span style="color:#1a5fa8;font-weight:600;">$1</span>')
+    .replace(/\n/g, '<br>');
+}
+
+// 點擊步驟格 → 展開 textarea 進行原始文字編輯（含 {藍:} 標記）
+function openStepEdit(el, idx, field) {
+  if (el.querySelector('textarea')) return; // 已在編輯中
+  const raw = state.weeklyPlan[idx][field] || '';
+  const isBlue = raw.includes('{藍:');
+  const ta = document.createElement('textarea');
+  ta.value = raw;
+  ta.style.cssText = [
+    'width:100%', 'min-height:120px', 'font-size:12px', 'line-height:1.6',
+    'padding:4px', 'border:none', 'outline:none', 'resize:vertical',
+    'font-family:inherit', 'background:transparent'
+  ].join(';');
+  el.innerHTML = '';
+  el.style.padding = '0';
+  el.appendChild(ta);
+  ta.focus();
+
+  const save = () => {
+    const val = ta.value;
+    state.weeklyPlan[idx][field] = val;
+    const hasBlue = val.includes('{藍:');
+    el.style.border = hasBlue ? '2px solid #1a5fa8' : '1px solid var(--border)';
+    el.style.padding = '4px';
+    el.innerHTML = renderBlue(val);
+    el.onclick = function(){ openStepEdit(el, idx, field); };
+  };
+
+  ta.addEventListener('blur', save);
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { ta.blur(); }
+  });
+}
+
+// ── Step 2 → Step 3 ──────────────────────────────────────────────────────────
+async function goStep3() {
+  showError('step2Error', '');
+  showLoading('AI 正在生成課程目標與核心素養…', '請稍候（約 15–30 秒）');
+
+  try {
+    const res = await apiFetch('/api/generate-goals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        basicInfo: state.basicInfo,
+        outline: state.outline,
+        weeklyPlan: state.weeklyPlan
+      })
+    });
+    if (!res.ok) throw new Error((await res.json()).error || '伺服器錯誤');
+    const data = await res.json();
+    state.goals = data.goals || [];
+    state.generalLiteracy = data.generalLiteracy || {};
+    state.domainLiteracy = data.domainLiteracy || '';
+    renderGoals(state.goals);
+    renderLiteracyGrid(state.generalLiteracy);
+    document.getElementById('domainLiteracy').value = state.domainLiteracy;
+    hideLoading();
+    showStep(3);
+  } catch (e) {
+    hideLoading();
+    showError('step2Error', `生成失敗：${e.message}`);
+  }
+}
+
+function renderGoals(goals) {
+  const list = document.getElementById('goalsList');
+  list.innerHTML = '';
+  goals.forEach((g, i) => {
+    list.appendChild(makeGoalItem(g, i));
+  });
+}
+
+function makeGoalItem(text, idx) {
+  const li = document.createElement('li');
+  li.className = 'goal-item';
+  li.dataset.idx = idx;
+  li.innerHTML = `
+    <div class="goal-num">${idx + 1}</div>
+    <input type="text" value="${esc(text)}" oninput="state.goals[${idx}]=this.value" placeholder="課程目標">
+    <button class="btn btn-secondary" onclick="removeGoal(${idx})" style="padding:5px 10px;font-size:12px;">✕</button>
+  `;
+  return li;
+}
+
+function addGoal() {
+  state.goals.push('');
+  renderGoals(state.goals);
+}
+
+function removeGoal(idx) {
+  state.goals.splice(idx, 1);
+  renderGoals(state.goals);
+}
+
+function renderLiteracyGrid(data) {
+  const grid = document.getElementById('literacyGrid');
+  grid.innerHTML = '';
+  Object.entries(LITERACY_LABELS).forEach(([key, label]) => {
+    const item = data[key] || { checked: false, content: '' };
+    const div = document.createElement('div');
+    div.className = `literacy-item${item.checked ? ' checked' : ''}`;
+    div.innerHTML = `
+      <label class="literacy-check">
+        <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="toggleLiteracy('${key}', this.checked)">
+        <span>${label}</span>
+      </label>
+      <div class="literacy-content">
+        <input type="text" value="${esc(item.content)}" placeholder="具體內涵說明（選填）"
+               oninput="state.generalLiteracy['${key}'].content=this.value">
+      </div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+function toggleLiteracy(key, checked) {
+  if (!state.generalLiteracy[key]) state.generalLiteracy[key] = { checked: false, content: '' };
+  state.generalLiteracy[key].checked = checked;
+  const items = document.querySelectorAll('.literacy-item');
+  const keys = Object.keys(LITERACY_LABELS);
+  const idx = keys.indexOf(key);
+  if (items[idx]) items[idx].classList.toggle('checked', checked);
+}
+
+// ── Step 4: Preview ──────────────────────────────────────────────────────────
+function buildPreview() {
+  const i = state.basicInfo;
+  document.getElementById('previewBasic').textContent =
+    `${i.year}學年度 ${i.grade}年級 第${i.semester}學期 ${i.subject} ／ 每週${i.periodsPerWeek}節，實施${i.weeks}週 ／ 設計者：${i.designer || '（未填）'}`;
+
+  const gl = document.getElementById('previewGoals');
+  gl.innerHTML = '';
+  state.goals.forEach(g => {
+    const li = document.createElement('li');
+    li.textContent = g;
+    gl.appendChild(li);
+  });
+
+  const wl = document.getElementById('previewWeeks');
+  wl.innerHTML = '';
+  state.weeklyPlan.slice(0, 3).forEach(w => {
+    const li = document.createElement('li');
+    li.textContent = `第${w.weekNum}週：${w.unitTheme}`;
+    wl.appendChild(li);
+  });
+}
+
+// Override showStep to build preview when going to step 4
+const _origShowStep = showStep;
+window.showStep = function(n) {
+  if (n === 4) {
+    // Sync domain literacy
+    state.domainLiteracy = document.getElementById('domainLiteracy').value;
+    buildPreview();
+  }
+  _origShowStep(n);
+};
+
+// ── Download DOCX ────────────────────────────────────────────────────────────
+async function downloadDocx() {
+  showError('step4Error', '');
+  showLoading('正在生成 Word 檔案…', '請稍候');
+  try {
+    const res = await apiFetch('/api/generate-docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        basicInfo: state.basicInfo,
+        weeklyPlan: state.weeklyPlan,
+        goals: state.goals,
+        generalLiteracy: state.generalLiteracy,
+        domainLiteracy: state.domainLiteracy,
+        structure: state.structure || []
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || '伺服器錯誤');
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const i = state.basicInfo;
+    a.download = `${i.year}學年度_${i.grade}年級_${i.subject}課程計畫.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    hideLoading();
+  } catch (e) {
+    hideLoading();
+    showError('step4Error', `下載失敗：${e.message}`);
+  }
+}
+
+// ── Image analysis ───────────────────────────────────────────────────────────
+let _currentRotation = 0;   // cumulative degrees
+let _originalImage = null;  // HTMLImageElement of the original loaded file
+
+function analyzeImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  _currentRotation = 0;
+  document.getElementById('imageHint').textContent = '旋轉到正確方向後，按「送出辨識」';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      _originalImage = img;
+      _drawRotated(0);
+      document.getElementById('imagePreviewArea').style.display = 'block';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function rotateImage(deg) {
+  _currentRotation = (_currentRotation + deg + 360) % 360;
+  _drawRotated(_currentRotation);
+}
+
+function _drawRotated(deg) {
+  const img = _originalImage;
+  if (!img) return;
+  const canvas = document.getElementById('imageCanvas');
+  const rad = deg * Math.PI / 180;
+  const swap = deg === 90 || deg === 270;
+  canvas.width  = swap ? img.height : img.width;
+  canvas.height = swap ? img.width  : img.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -img.width / 2, -img.height / 2);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  document.getElementById('imagePreview').src = canvas.toDataURL('image/jpeg', 0.92);
+}
+
+async function submitAnalyze() {
+  document.getElementById('analyzeStatus').style.display = 'block';
+  document.getElementById('imageHint').textContent = '';
+
+  const canvas = document.getElementById('imageCanvas');
+  // If no rotation happened, canvas may be blank — draw at 0°
+  if (canvas.width === 0) _drawRotated(0);
+  const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+
+  try {
+    const res = await apiFetch('/api/analyze-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: b64, mediaType: 'image/jpeg' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `伺服器錯誤 (${res.status})`);
+    const ta = document.getElementById('outline');
+    ta.value = ta.value ? ta.value + '\n\n' + data.text : data.text;
+    document.getElementById('imageHint').textContent = '✅ 辨識完成，已填入上方欄位，請確認內容';
+  } catch (e) {
+    document.getElementById('imageHint').textContent = `辨識失敗：${e.message}`;
+  } finally {
+    document.getElementById('analyzeStatus').style.display = 'none';
+  }
+}
+
+function clearImage() {
+  document.getElementById('outlineImage').value = '';
+  document.getElementById('imagePreviewArea').style.display = 'none';
+  document.getElementById('imageHint').textContent = '可上傳教材封面、課綱截圖或手寫筆記，AI 將自動辨識並填入上方欄位';
+  _currentRotation = 0;
+  _originalImage = null;
+  const canvas = document.getElementById('imageCanvas');
+  canvas.width = 0; canvas.height = 0;
+}
+
+// ── Mixed grade toggle ────────────────────────────────────────────────────────
+document.getElementById('mixedGrade').addEventListener('change', function() {
+  document.getElementById('mixedGrades').style.display = this.checked ? '' : 'none';
+});
+
+// ── 自動計算學年度 ────────────────────────────────────────────────────────────
+(function () {
+  const now = new Date();
+  const adYear = now.getFullYear();
+  const month  = now.getMonth() + 1; // 1-12
+  const rocYear = adYear - 1911;     // 民國年
+
+  // 規則：
+  // 9月～12月：新學年剛開始，學年度 = 當年民國年
+  // 1月～8月：即將/正在規劃下學年，學年度 = 當年民國年
+  // （學校學年 = 民國年/9 ~ 民國年+1/6，用同一個民國年標記）
+  const schoolYear = rocYear;
+
+  document.getElementById('year').value = schoolYear;
+
+  const hint = document.getElementById('yearHint');
+  if (month >= 9) {
+    hint.textContent = `（${schoolYear}/9 已開學，執行中）`;
+  } else {
+    hint.textContent = `（${schoolYear}/9 開學，目前規劃期）`;
+  }
+})();
+
+// ── 初始化 API Key 狀態 ───────────────────────────────────────────────────────
+updateApiKeyStatus();
+// 第一次使用若沒有 Key，自動跳出設定視窗
+if (!getApiKey()) showApiKeyModal();
+
+// ── Auto year default ─────────────────────────────────────────────────────────
+// Leave as 114
+
+// ── Grade auto-adjust weeks ──────────────────────────────────────────────────
+document.getElementById('grade').addEventListener('change', function() {
+  const highGrades = ['五', '六'];
+  document.getElementById('weeks').value = highGrades.includes(this.value) ? 19 : 21;
+});
+</script>
+</body>
+</html>

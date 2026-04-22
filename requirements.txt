@@ -1,0 +1,12 @@
+# PDF → PPTX 轉換器相依套件
+pdf2image>=1.16.3
+easyocr>=1.7.1
+opencv-python>=4.8.0
+Pillow>=10.0.0
+python-pptx>=0.6.23
+numpy>=1.24.0
+requests>=2.31.0
+
+# Windows 需另外安裝 Poppler（pdf2image 相依）
+# 下載: https://github.com/oschwartz10612/poppler-windows/releases
+# 解壓後將 bin/ 資料夾加入 PATH

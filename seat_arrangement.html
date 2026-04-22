@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>班級座位安排</title>
+    <style>
+        :root {
+            --primary: #4A90D9;
+            --primary-dark: #2C6FAC;
+            --bg: #F0F4F8;
+            --panel-bg: #FFFFFF;
+            --border: #E2E8F0;
+            --text: #2D3748;
+            --text-muted: #718096;
+            --danger: #E53E3E;
+            --success: #38A169;
+            --shadow: 0 2px 8px rgba(0,0,0,0.09);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: var(--shadow);
+            z-index: 10;
+        }
+
+        .header-icon { font-size: 22px; }
+
+        .class-name-input {
+            font-size: 15px;
+            font-weight: 700;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 6px 12px;
+            color: var(--text);
+            min-width: 220px;
+            background: var(--bg);
+        }
+        .class-name-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(74,144,217,.15);
+        }
+
+        .firebase-badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .firebase-badge.connected { background: #C6F6D5; color: #22543D; }
+        .firebase-badge.disconnected { background: #EDF2F7; color: #718096; }
+
+        .header-actions { margin-left: auto; display: flex; gap: 8px; }
+
+        /* ── Main layout ── */
+        .main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ── Left: Seat area ── */
+        .seat-area {
+            flex: 1;
+            padding: 20px 24px;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .blackboard {
+            background: linear-gradient(135deg, #1a3a12 0%, #2d5a1e 100%);
+            color: #c8e6c9;
+            text-align: center;
+            padding: 10px 48px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: .05em;
+            margin-bottom: 28px;
+            width: 70%;
+            max-width: 380px;
+            box-shadow: 0 6px 20px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.1);
+        }
+
+        .seat-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        /* ── Seat card ── */
+        .seat {
+            width: 88px;
+            height: 70px;
+            border: 2px solid #CBD5E0;
+            border-radius: 9px;
+            background: #F7FAFC;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color .15s, background .15s, transform .1s, box-shadow .15s;
+            position: relative;
+            user-select: none;
+            font-size: 13px;
+        }
+        .seat:hover { border-color: var(--primary); background: #EBF4FF; box-shadow: 0 2px 8px rgba(74,144,217,.2); }
+        .seat.occupied { cursor: grab; background: white; box-shadow: var(--shadow); }
+        .seat.occupied:active { cursor: grabbing; }
+        .seat.drag-over { border-color: var(--primary); background: #DBEAFE; transform: scale(1.06); }
+        .seat.dragging { opacity: .35; transform: scale(.96); }
+
+        .seat-num {
+            position: absolute;
+            top: 3px; left: 5px;
+            font-size: 9px;
+            color: #A0AEC0;
+            font-weight: 600;
+        }
+        .seat-leader {
+            position: absolute;
+            top: 2px; right: 4px;
+            font-size: 12px;
+        }
+        .seat-name {
+            font-size: 14px;
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.2;
+            max-width: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .seat-group-tag {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 8px;
+            margin-top: 3px;
+            opacity: .8;
+        }
+        .seat-empty-icon { font-size: 20px; color: #CBD5E0; }
+
+        /* ── Right Panel ── */
+        .right-panel {
+            width: 290px;
+            border-left: 1px solid var(--border);
+            background: var(--panel-bg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-section {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .section-label {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        .field label {
+            font-size: 11px;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 3px;
+        }
+        .field input[type=number], .field input[type=text] {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .field input:focus { outline: none; border-color: var(--primary); }
+
+        /* Student list section (flex-grow) */
+        .student-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 14px 16px;
+        }
+
+        .student-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .student-count-badge {
+            background: var(--primary);
+            color: white;
+            border-radius: 12px;
+            padding: 1px 8px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .add-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .add-row input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        .add-row input:focus { outline: none; border-color: var(--primary); }
+
+        .student-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .student-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 9px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            cursor: grab;
+            background: white;
+            transition: all .15s;
+            font-size: 13px;
+            gap: 6px;
+        }
+        .student-item:hover { border-color: var(--primary); background: #EBF4FF; }
+        .student-item.assigned {
+            opacity: .55;
+            cursor: default;
+            background: var(--bg);
+        }
+        .student-item-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .student-item-name { flex: 1; font-weight: 600; }
+        .student-item-seat { font-size: 10px; color: var(--text-muted); }
+        .student-item-del {
+            background: none; border: none;
+            color: #CBD5E0; cursor: pointer;
+            font-size: 15px; line-height: 1;
+            padding: 2px 3px; border-radius: 4px;
+            transition: color .15s;
+        }
+        .student-item-del:hover { color: var(--danger); background: #FFF5F5; }
+
+        /* batch */
+        .batch-area {
+            display: none;
+            margin-bottom: 8px;
+        }
+        .batch-area textarea {
+            width: 100%;
+            height: 90px;
+            padding: 7px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            resize: none;
+            font-family: inherit;
+        }
+        .batch-area textarea:focus { outline: none; border-color: var(--primary); }
+        .batch-hint { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+
+        /* Firebase section */
+        .firebase-section {
+            padding: 14px 16px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .fw { width: 100%; }
+
+        /* ── Buttons ── */
+        .btn {
+            padding: 7px 14px;
+            border-radius: 7px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            transition: all .15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-outline { background: white; color: var(--text); border: 1px solid var(--border); }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); background: #EBF4FF; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #276749; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #C53030; }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.45);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 200;
+            opacity: 0; pointer-events: none;
+            transition: opacity .2s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
+
+        .modal {
+            background: white;
+            border-radius: 14px;
+            padding: 24px;
+            width: 340px;
+            box-shadow: 0 24px 64px rgba(0,0,0,.22);
+            transform: scale(.92) translateY(10px);
+            transition: transform .2s;
+        }
+        .modal-overlay.active .modal { transform: scale(1) translateY(0); }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 800;
+            margin-bottom: 18px;
+            color: var(--text);
+        }
+
+        .modal-body { display: flex; flex-direction: column; gap: 14px; }
+
+        .modal-field label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 700;
+            display: block;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+
+        .modal-field select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+        .modal-field select:focus { outline: none; border-color: var(--primary); }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Group picker */
+        .group-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 7px;
+        }
+        .group-btn {
+            padding: 7px 4px;
+            border-radius: 7px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            transition: all .15s;
+        }
+        .group-btn:hover { transform: scale(1.05); }
+        .group-btn.selected { border-color: #2D3748 !important; transform: scale(1.07); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+
+        /* Leader toggle */
+        .leader-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color .15s;
+        }
+        .leader-toggle:hover { border-color: var(--primary); }
+        .leader-toggle.on { border-color: #EAB308; background: #FEFCE8; }
+        .leader-toggle input { width: 16px; height: 16px; cursor: pointer; }
+        .leader-toggle span { font-size: 14px; font-weight: 600; }
+
+        /* Seat remove btn inside modal */
+        .seat-clear-btn {
+            background: #FFF5F5;
+            color: var(--danger);
+            border: 1px solid #FEB2B2;
+            border-radius: 7px;
+            padding: 7px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: all .15s;
+        }
+        .seat-clear-btn:hover { background: #FED7D7; }
+
+        /* Firebase config modal */
+        .fb-modal .modal { width: 420px; }
+        .fb-modal textarea {
+            width: 100%;
+            height: 160px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: none;
+        }
+        .fb-modal textarea:focus { outline: none; border-color: var(--primary); }
+
+        .info-box {
+            background: #FFFBEB;
+            border: 1px solid #F6E05E;
+            border-radius: 7px;
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #744210;
+            line-height: 1.5;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 22px; right: 22px;
+            background: #1A202C;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 9px;
+            font-size: 13px;
+            font-weight: 600;
+            z-index: 400;
+            transform: translateY(60px);
+            opacity: 0;
+            transition: all .28s cubic-bezier(.34,1.56,.64,1);
+            box-shadow: 0 8px 24px rgba(0,0,0,.2);
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: #276749; }
+        .toast.error { background: #C53030; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #A0AEC0; }
+    </style>
+</head>
+<body>
+
+<!-- ═══ Header ═══ -->
+<div class="header">
+    <span class="header-icon">🪑</span>
+    <input type="text" class="class-name-input" id="className" value="000班學生座位表" />
+    <span class="firebase-badge disconnected" id="firebaseBadge">● 未連線 Firebase</span>
+    <div class="header-actions">
+        <button class="btn btn-outline" onclick="loadFromFirebase()">📥 載入</button>
+        <button class="btn btn-success" onclick="saveToFirebase()">💾 儲存至 Firebase</button>
+    </div>
+</div>
+
+<!-- ═══ Main ═══ -->
+<div class="main">
+
+    <!-- Left: Seat Grid -->
+    <div class="seat-area">
+        <div class="blackboard" id="bbTitle">黑板（講台）</div>
+        <div class="seat-grid" id="seatGrid"></div>
+    </div>
+
+    <!-- Right: Control Panel -->
+    <div class="right-panel">
+
+        <!-- Seat config -->
+        <div class="panel-section">
+            <div class="section-label">座位設定</div>
+            <div class="grid-2">
+                <div class="field">
+                    <label>排數（行）</label>
+                    <input type="number" id="cfgRows" min="1" max="12" value="5" />
+                </div>
+                <div class="field">
+                    <label>列數（欄）</label>
+                    <input type="number" id="cfgCols" min="1" max="12" value="6" />
+                </div>
+            </div>
+            <button class="btn btn-outline btn-sm fw" style="margin-top:10px;" onclick="applyConfig()">套用座位設定</button>
+        </div>
+
+        <!-- Student list -->
+        <div class="student-section">
+            <div class="student-section-header">
+                <span class="section-label" style="margin:0;">學生名單</span>
+                <span class="student-count-badge" id="stuCount">0</span>
+            </div>
+
+            <div class="add-row">
+                <input type="text" id="newName" placeholder="輸入姓名後按 Enter" onkeydown="if(event.key==='Enter')addStudent()" />
+                <button class="btn btn-primary btn-sm" onclick="addStudent()">新增</button>
+            </div>
+
+            <button class="btn btn-outline btn-sm fw" style="margin-bottom:8px;" onclick="toggleBatch()">📋 批次匯入</button>
+
+            <div class="batch-area" id="batchArea">
+                <textarea id="batchText" placeholder="每行一個姓名：&#10;王小明&#10;李小花&#10;張大偉"></textarea>
+                <div class="batch-hint">每行輸入一個學生姓名，按匯入後加入名單</div>
+                <button class="btn btn-primary btn-sm fw" style="margin-top:6px;" onclick="batchImport()">匯入</button>
+            </div>
+
+            <div class="student-list" id="studentList"></div>
+        </div>
+
+        <!-- Firebase -->
+        <div class="firebase-section">
+            <div class="section-label">Firebase 連線</div>
+            <button class="btn btn-outline btn-sm fw" onclick="openFbModal()">⚙️ 設定 Firebase 帳號</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ Seat Modal ═══ -->
+<div class="modal-overlay" id="seatModal" onclick="if(event.target===this)closeSeatModal()">
+    <div class="modal">
+        <div class="modal-title" id="seatModalTitle">座位設定</div>
+        <div class="modal-body">
+            <div class="modal-field">
+                <label>學生</label>
+                <select id="modalStuSel"></select>
+            </div>
+            <div class="modal-field">
+                <label>組別</label>
+                <div class="group-grid" id="groupGrid"></div>
+            </div>
+            <div class="modal-field">
+                <label>組長</label>
+                <label class="leader-toggle" id="leaderToggle" onclick="toggleLeader()">
+                    <input type="checkbox" id="modalLeader" onclick="event.stopPropagation()" onchange="updateLeaderToggle()" />
+                    <span id="leaderLabel">👑 設為組長</span>
+                </label>
+            </div>
+            <div class="seat-clear-btn" id="clearSeatBtn" onclick="clearSeat()">🗑 清除此座位</div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeSeatModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveSeatModal()">確認</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ Firebase Config Modal ═══ -->
+<div class="modal-overlay fb-modal" id="fbModal" onclick="if(event.target===this)closeFbModal()">
+    <div class="modal">
+        <div class="modal-title">Firebase 設定</div>
+        <div class="modal-body">
+            <div class="info-box">
+                前往 <strong>Firebase Console</strong> → 專案設定 → 您的應用程式 → 複製 <code>firebaseConfig</code> 的 JSON 內容貼入下方。
+            </div>
+            <div class="modal-field">
+                <label>Firebase Config (JSON)</label>
+                <textarea id="fbConfigInput" placeholder='{
+  "apiKey": "...",
+  "authDomain": "...",
+  "projectId": "...",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "..."
+}'></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeFbModal()">取消</button>
+            <button class="btn btn-primary" onclick="applyFbConfig()">套用並連線</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ─────────────────────────────────────────────
+//  GROUP DEFINITIONS
+// ─────────────────────────────────────────────
+const GROUPS = [
+    { label: '無組別',  bg: '#F7FAFC', border: '#CBD5E0', text: '#718096', dot: '#CBD5E0' },
+    { label: '第1組',   bg: '#BFDBFE', border: '#3B82F6', text: '#1E3A8A', dot: '#3B82F6' },
+    { label: '第2組',   bg: '#BBF7D0', border: '#22C55E', text: '#14532D', dot: '#22C55E' },
+    { label: '第3組',   bg: '#FDE68A', border: '#EAB308', text: '#713F12', dot: '#EAB308' },
+    { label: '第4組',   bg: '#FECACA', border: '#EF4444', text: '#7F1D1D', dot: '#EF4444' },
+    { label: '第5組',   bg: '#DDD6FE', border: '#8B5CF6', text: '#4C1D95', dot: '#8B5CF6' },
+    { label: '第6組',   bg: '#FED7AA', border: '#F97316', text: '#7C2D12', dot: '#F97316' },
+    { label: '第7組',   bg: '#A5F3FC', border: '#06B6D4', text: '#164E63', dot: '#06B6D4' },
+    { label: '第8組',   bg: '#FBCFE8', border: '#EC4899', text: '#831843', dot: '#EC4899' },
+];
+
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+let state = {
+    className: '000班學生座位表',
+    rows: 5,
+    cols: 6,
+    students: {},   // { id: { name, group, isLeader } }
+    seats: {}       // { "r0c0": studentId | null }
+};
+
+let db = null;
+let modalSeatKey = null;
+let modalGroup = 0;
+let dragSrcKey = null;
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+function init() {
+    // Load Firebase config from localStorage
+    const savedFb = localStorage.getItem('seatFbConfig');
+    if (savedFb) {
+        try { initFirebase(JSON.parse(savedFb)); } catch(e) {}
+    }
+
+    // Load app state
+    const savedState = localStorage.getItem('seatState');
+    if (savedState) {
+        try { state = JSON.parse(savedState); } catch(e) {}
+    }
+
+    document.getElementById('className').value = state.className;
+    document.getElementById('cfgRows').value = state.rows;
+    document.getElementById('cfgCols').value = state.cols;
+
+    renderGrid();
+    renderStudentList();
+}
+
+function initFirebase(config) {
+    try {
+        if (!firebase.apps.length) firebase.initializeApp(config);
+        else firebase.app(); // already initialized
+        db = firebase.firestore();
+        const badge = document.getElementById('firebaseBadge');
+        badge.textContent = '● 已連線 Firebase';
+        badge.className = 'firebase-badge connected';
+        showToast('Firebase 連線成功', 'success');
+    } catch(e) {
+        showToast('Firebase 連線失敗：' + e.message, 'error');
+    }
+}
+
+// ─────────────────────────────────────────────
+//  GRID RENDERING
+// ─────────────────────────────────────────────
+function renderGrid() {
+    const grid = document.getElementById('seatGrid');
+    grid.style.gridTemplateColumns = `repeat(${state.cols}, 88px)`;
+    grid.innerHTML = '';
+
+    for (let r = 0; r < state.rows; r++) {
+        for (let c = 0; c < state.cols; c++) {
+            const key = `r${r}c${c}`;
+            const stuId = state.seats[key] || null;
+            const stu = stuId ? state.students[stuId] : null;
+            const seatNum = r * state.cols + c + 1;
+            const grp = stu ? GROUPS[stu.group || 0] : GROUPS[0];
+
+            const el = document.createElement('div');
+            el.className = 'seat' + (stu ? ' occupied' : '');
+            el.dataset.key = key;
+
+            if (stu) {
+                el.style.background = grp.bg;
+                el.style.borderColor = grp.border;
+            }
+
+            // Seat number
+            const numEl = document.createElement('span');
+            numEl.className = 'seat-num';
+            numEl.textContent = seatNum;
+            el.appendChild(numEl);
+
+            if (stu) {
+                // Leader badge
+                if (stu.isLeader) {
+                    const badge = document.createElement('span');
+                    badge.className = 'seat-leader';
+                    badge.textContent = '👑';
+                    el.appendChild(badge);
+                }
+                // Name
+                const nameEl = document.createElement('span');
+                nameEl.className = 'seat-name';
+                nameEl.style.color = grp.text;
+                nameEl.textContent = stu.name;
+                el.appendChild(nameEl);
+                // Group tag
+                if (stu.group) {
+                    const tag = document.createElement('span');
+                    tag.className = 'seat-group-tag';
+                    tag.style.background = grp.border + '33';
+                    tag.style.color = grp.text;
+                    tag.textContent = grp.label;
+                    el.appendChild(tag);
+                }
+                // Drag (seat to seat)
+                el.draggable = true;
+                el.addEventListener('dragstart', onSeatDragStart);
+                el.addEventListener('dragend', onSeatDragEnd);
+            } else {
+                const icon = document.createElement('span');
+                icon.className = 'seat-empty-icon';
+                icon.textContent = '+';
+                el.appendChild(icon);
+            }
+
+            // Drop target
+            el.addEventListener('dragover', onDragOver);
+            el.addEventListener('dragleave', onDragLeave);
+            el.addEventListener('drop', onDrop);
+
+            // Click → modal
+            el.addEventListener('click', () => openSeatModal(key));
+
+            grid.appendChild(el);
+        }
+    }
+
+    saveLocal();
+}
+
+// ─────────────────────────────────────────────
+//  STUDENT LIST
+// ─────────────────────────────────────────────
+function renderStudentList() {
+    const list = document.getElementById('studentList');
+    list.innerHTML = '';
+
+    const assignedIds = new Set(Object.values(state.seats).filter(Boolean));
+    const entries = Object.entries(state.students);
+
+    document.getElementById('stuCount').textContent = entries.length;
+
+    // Sort: unassigned first, then by name
+    entries.sort(([, a], [, b]) => {
+        const aA = assignedIds.has(Object.keys(state.students).find(k => state.students[k] === a));
+        const bA = assignedIds.has(Object.keys(state.students).find(k => state.students[k] === b));
+        if (aA !== bA) return aA ? 1 : -1;
+        return a.name.localeCompare(b.name, 'zh-TW');
+    });
+
+    entries.forEach(([id, stu]) => {
+        const assigned = assignedIds.has(id);
+        const grp = GROUPS[stu.group || 0];
+
+        const item = document.createElement('div');
+        item.className = 'student-item' + (assigned ? ' assigned' : '');
+        item.dataset.id = id;
+
+        if (!assigned) {
+            item.draggable = true;
+            item.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('studentId', id);
+                e.dataTransfer.effectAllowed = 'move';
+            });
+        }
+
+        // Find seat label
+        let seatLabel = '';
+        if (assigned) {
+            const entry = Object.entries(state.seats).find(([, v]) => v === id);
+            if (entry) {
+                const m = entry[0].match(/r(\d+)c(\d+)/);
+                if (m) seatLabel = `座${parseInt(m[1]) * state.cols + parseInt(m[2]) + 1}`;
+            }
+        }
+
+        item.innerHTML = `
+            <span class="student-item-dot" style="background:${grp.dot}"></span>
+            <span class="student-item-name">${stu.name}${stu.isLeader ? ' 👑' : ''}</span>
+            ${assigned ? `<span class="student-item-seat">${seatLabel}</span>` : ''}
+            <button class="student-item-del" onclick="deleteStudent('${id}',event)" title="刪除學生">×</button>
+        `;
+
+        list.appendChild(item);
+    });
+}
+
+function addStudent() {
+    const input = document.getElementById('newName');
+    const name = input.value.trim();
+    if (!name) return;
+    const id = genId();
+    state.students[id] = { name, group: 0, isLeader: false };
+    input.value = '';
+    renderStudentList();
+    saveLocal();
+}
+
+function deleteStudent(id, e) {
+    e.stopPropagation();
+    const stu = state.students[id];
+    if (!stu) return;
+    if (!confirm(`確定要刪除「${stu.name}」嗎？`)) return;
+    // Remove from seats
+    Object.keys(state.seats).forEach(k => { if (state.seats[k] === id) state.seats[k] = null; });
+    delete state.students[id];
+    renderGrid();
+    renderStudentList();
+}
+
+function toggleBatch() {
+    const area = document.getElementById('batchArea');
+    area.style.display = area.style.display === 'none' ? 'block' : 'none';
+}
+
+function batchImport() {
+    const text = document.getElementById('batchText').value;
+    const names = text.split('\n').map(n => n.trim()).filter(Boolean);
+    if (!names.length) return;
+    names.forEach(name => {
+        state.students[genId()] = { name, group: 0, isLeader: false };
+    });
+    document.getElementById('batchText').value = '';
+    document.getElementById('batchArea').style.display = 'none';
+    renderStudentList();
+    saveLocal();
+    showToast(`已匯入 ${names.length} 位學生`, 'success');
+}
+
+// ─────────────────────────────────────────────
+//  SEAT CONFIG
+// ─────────────────────────────────────────────
+function applyConfig() {
+    const rows = Math.min(12, Math.max(1, parseInt(document.getElementById('cfgRows').value) || 5));
+    const cols = Math.min(12, Math.max(1, parseInt(document.getElementById('cfgCols').value) || 6));
+
+    const old = { ...state.seats };
+    state.seats = {};
+    state.rows = rows;
+    state.cols = cols;
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const key = `r${r}c${c}`;
+            state.seats[key] = old[key] || null;
+        }
+    }
+
+    renderGrid();
+    renderStudentList();
+    showToast('座位設定已套用');
+}
+
+// ─────────────────────────────────────────────
+//  DRAG AND DROP
+// ─────────────────────────────────────────────
+function onSeatDragStart(e) {
+    dragSrcKey = e.currentTarget.dataset.key;
+    e.dataTransfer.setData('seatKey', dragSrcKey);
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => e.currentTarget.classList.add('dragging'), 0);
+}
+function onSeatDragEnd(e) {
+    e.currentTarget.classList.remove('dragging');
+    dragSrcKey = null;
+}
+function onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('drag-over');
+}
+function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function onDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    const targetKey = e.currentTarget.dataset.key;
+    const srcSeatKey = e.dataTransfer.getData('seatKey');
+    const srcStuId = e.dataTransfer.getData('studentId');
+
+    if (srcStuId) {
+        // From student list → seat
+        state.seats[targetKey] = srcStuId;
+    } else if (srcSeatKey && srcSeatKey !== targetKey) {
+        // Swap seats
+        const tmp = state.seats[targetKey];
+        state.seats[targetKey] = state.seats[srcSeatKey];
+        state.seats[srcSeatKey] = tmp;
+    }
+
+    renderGrid();
+    renderStudentList();
+}
+
+// ─────────────────────────────────────────────
+//  SEAT MODAL
+// ─────────────────────────────────────────────
+function openSeatModal(key) {
+    modalSeatKey = key;
+    const stuId = state.seats[key] || null;
+    const stu = stuId ? state.students[stuId] : null;
+
+    const m = key.match(/r(\d+)c(\d+)/);
+    const num = parseInt(m[1]) * state.cols + parseInt(m[2]) + 1;
+    document.getElementById('seatModalTitle').textContent = `座位 ${num}`;
+
+    // Populate student select
+    const sel = document.getElementById('modalStuSel');
+    sel.innerHTML = '<option value="">── 空位 ──</option>';
+
+    const assignedIds = new Set(
+        Object.entries(state.seats)
+            .filter(([k, v]) => v && k !== key)
+            .map(([, v]) => v)
+    );
+
+    Object.entries(state.students).forEach(([id, s]) => {
+        if (!assignedIds.has(id) || id === stuId) {
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = s.name;
+            opt.selected = id === stuId;
+            sel.appendChild(opt);
+        }
+    });
+
+    // Group
+    modalGroup = stu?.group || 0;
+    renderGroupGrid();
+
+    // Leader
+    document.getElementById('modalLeader').checked = stu?.isLeader || false;
+    updateLeaderToggle();
+
+    // Clear btn visibility
+    document.getElementById('clearSeatBtn').style.display = stuId ? 'block' : 'none';
+
+    document.getElementById('seatModal').classList.add('active');
+}
+
+function renderGroupGrid() {
+    const grid = document.getElementById('groupGrid');
+    grid.innerHTML = '';
+    GROUPS.forEach((g, i) => {
+        const btn = document.createElement('div');
+        btn.className = 'group-btn' + (i === modalGroup ? ' selected' : '');
+        btn.style.background = g.bg;
+        btn.style.borderColor = i === modalGroup ? '#2D3748' : g.border;
+        btn.style.color = g.text;
+        btn.textContent = g.label;
+        btn.title = g.label;
+        btn.onclick = () => { modalGroup = i; renderGroupGrid(); };
+        grid.appendChild(btn);
+    });
+}
+
+function toggleLeader() {
+    const cb = document.getElementById('modalLeader');
+    cb.checked = !cb.checked;
+    updateLeaderToggle();
+}
+function updateLeaderToggle() {
+    const on = document.getElementById('modalLeader').checked;
+    const tog = document.getElementById('leaderToggle');
+    tog.className = 'leader-toggle' + (on ? ' on' : '');
+}
+
+function clearSeat() {
+    if (!modalSeatKey) return;
+    state.seats[modalSeatKey] = null;
+    closeSeatModal();
+    renderGrid();
+    renderStudentList();
+}
+
+function saveSeatModal() {
+    const stuId = document.getElementById('modalStuSel').value || null;
+    const isLeader = document.getElementById('modalLeader').checked;
+
+    state.seats[modalSeatKey] = stuId;
+
+    if (stuId) {
+        state.students[stuId].group = modalGroup;
+        state.students[stuId].isLeader = isLeader;
+    }
+
+    closeSeatModal();
+    renderGrid();
+    renderStudentList();
+}
+
+function closeSeatModal() {
+    document.getElementById('seatModal').classList.remove('active');
+    modalSeatKey = null;
+}
+
+// ─────────────────────────────────────────────
+//  FIREBASE MODAL
+// ─────────────────────────────────────────────
+function openFbModal() {
+    const saved = localStorage.getItem('seatFbConfig');
+    if (saved) document.getElementById('fbConfigInput').value = JSON.stringify(JSON.parse(saved), null, 2);
+    document.getElementById('fbModal').classList.add('active');
+}
+function closeFbModal() { document.getElementById('fbModal').classList.remove('active'); }
+
+function applyFbConfig() {
+    const raw = document.getElementById('fbConfigInput').value.trim();
+    try {
+        const cfg = JSON.parse(raw);
+        localStorage.setItem('seatFbConfig', JSON.stringify(cfg));
+        closeFbModal();
+        // Re-init (if already initialized we need to use the existing app)
+        if (firebase.apps.length > 0) {
+            db = firebase.firestore();
+            const badge = document.getElementById('firebaseBadge');
+            badge.textContent = '● 已連線 Firebase';
+            badge.className = 'firebase-badge connected';
+            showToast('Firebase 連線成功', 'success');
+        } else {
+            initFirebase(cfg);
+        }
+    } catch(e) {
+        showToast('JSON 格式錯誤，請重新確認', 'error');
+    }
+}
+
+// ─────────────────────────────────────────────
+//  FIREBASE READ / WRITE
+// ─────────────────────────────────────────────
+function getDocId() {
+    const name = document.getElementById('className').value.trim() || '班級';
+    return name.replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]/g, '_').slice(0, 60);
+}
+
+async function saveToFirebase() {
+    if (!db) { showToast('請先設定 Firebase 連線', 'error'); return; }
+    state.className = document.getElementById('className').value;
+    try {
+        await db.collection('classrooms').doc(getDocId()).set({
+            ...state,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        saveLocal();
+        showToast('已成功儲存至 Firebase ✓', 'success');
+    } catch(e) {
+        showToast('儲存失敗：' + e.message, 'error');
+    }
+}
+
+async function loadFromFirebase() {
+    if (!db) { showToast('請先設定 Firebase 連線', 'error'); return; }
+    try {
+        const doc = await db.collection('classrooms').doc(getDocId()).get();
+        if (!doc.exists) { showToast('找不到此班級的資料', 'error'); return; }
+        const data = doc.data();
+        delete data.updatedAt;
+        state = data;
+        document.getElementById('cfgRows').value = state.rows;
+        document.getElementById('cfgCols').value = state.cols;
+        renderGrid();
+        renderStudentList();
+        saveLocal();
+        showToast('載入成功 ✓', 'success');
+    } catch(e) {
+        showToast('載入失敗：' + e.message, 'error');
+    }
+}
+
+// ─────────────────────────────────────────────
+//  LOCAL STORAGE
+// ─────────────────────────────────────────────
+function saveLocal() {
+    state.className = document.getElementById('className').value;
+    localStorage.setItem('seatState', JSON.stringify(state));
+}
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+function genId() { return 'stu_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (type ? ' ' + type : '');
+    setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ─────────────────────────────────────────────
+//  EVENT LISTENERS
+// ─────────────────────────────────────────────
+document.getElementById('className').addEventListener('change', saveLocal);
+
+// ─────────────────────────────────────────────
+//  START
+// ─────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
