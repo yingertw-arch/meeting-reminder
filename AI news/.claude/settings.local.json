@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(schedule)",
+      "Skill(schedule:*)",
+      "mcp__scheduled-tasks__create_scheduled_task",
+      "mcp__scheduled-tasks__update_scheduled_task",
+      "WebSearch",
+      "Bash(npx -y mcp-obsidian --help)",
+      "Read(//h/我的雲端硬碟/Dev/Obsidian/AI新聞/**)",
+      "Bash(mkdir -p \"H:/我的雲端硬碟/Dev/Obsidian/AI新聞/\")"
+    ]
+  }
+}
