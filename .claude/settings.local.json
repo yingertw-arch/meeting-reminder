@@ -80,7 +80,8 @@
       "Bash(cp \"C:/Users/HSPS/Desktop/homework-installer/作業缺交追蹤 Setup 1.8.6.exe\" \"H:/我的雲端硬碟/Homeworktracker/作業缺交追蹤 Setup 1.8.6.exe\")",
       "Bash(cp \"C:/Users/HSPS/Desktop/homework-installer/作業缺交追蹤 Setup 1.8.6.exe.blockmap\" \"H:/我的雲端硬碟/Homeworktracker/作業缺交追蹤 Setup 1.8.6.exe.blockmap\")",
       "Bash(ls C:/Users/HSPS/Desktop/homework-tracker/*.js)",
-      "Bash(npm version:*)"
+      "Bash(npm version:*)",
+      "Bash(del \"C:\\\\Users\\\\HSPS\\\\Desktop\\\\homework-tracker\\\\google-token.json\")"
     ]
   }
 }
