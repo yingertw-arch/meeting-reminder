@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(schedule)",
+      "Skill(schedule:*)",
+      "mcp__scheduled-tasks__create_scheduled_task",
+      "mcp__scheduled-tasks__update_scheduled_task",
+      "WebSearch",
+      "Bash(npx -y mcp-obsidian --help)",
+      "Read(//h/我的雲端硬碟/Dev/Obsidian/AI新聞/**)",
+      "Bash(mkdir -p \"H:/我的雲端硬碟/Dev/Obsidian/AI新聞/\")",
+      "Bash(npx -y mcp-obsidian \"H:\\\\我的雲端硬碟\\\\Dev\\\\Obsidian\")",
+      "Bash(kill %1)",
+      "Bash(timeout 5 npx mcp-obsidian \"/h/我的雲端硬碟/Dev/Obsidian\")",
+      "Bash(where npx:*)",
+      "Read(//h/我的雲端硬碟/Dev/Obsidian/**)",
+      "Bash(mkdir -p \"H:/我的雲端硬碟/Dev/Obsidian/AI新聞\")",
+      "Bash(echo \"Done: $?\")",
+      "Bash(schtasks /create /tn \"ClaudeCode-Weekly-Cleanup\" /tr \"\\\\\"C:\\\\\\\\Program Files\\\\\\\\Git\\\\\\\\bin\\\\\\\\bash.exe\\\\\" -c \\\\\"find /c/Users/HSPS/.claude/projects/ -name '*.jsonl' -mtime +7 -delete\\\\\"\" /sc WEEKLY /d MON /st 07:00 /f)",
+      "Bash(where git:*)",
+      "Read(//c/Program Files/Git/bin/**)",
+      "Bash(powershell -Command ':*)"
+    ]
+  }
+}

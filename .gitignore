@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 reminders.json
 start_reminder.vbs
+homework-installer/

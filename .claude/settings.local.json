@@ -71,7 +71,17 @@
       "Bash(node setup-web.js)",
       "Bash(dir /s \"C:\\\\Users\\\\HSPS\\\\Desktop\\\\homework-tracker\\\\node_modules\")",
       "Bash(powershell.exe -NoProfile -Command \"Get-PSDrive C | Select-Object Used, Free\")",
-      "Bash(powershell.exe -NoProfile -Command ':*)"
+      "Bash(powershell.exe -NoProfile -Command ':*)",
+      "Bash(cmd /c \"dir \\\\\"H:\\\\我的雲端硬碟\\\\\" /b\")",
+      "Bash(powershell -Command \"Get-ChildItem 'H:\\\\我的雲端硬碟' | Select-Object Name, PSIsContainer\")",
+      "Bash(node deploy-web.js)",
+      "Bash(npx firebase-tools:*)",
+      "Bash(cmd /c \"start cmd /k npx firebase-tools login:ci\")",
+      "Bash(cp \"C:/Users/HSPS/Desktop/homework-installer/作業缺交追蹤 Setup 1.8.6.exe\" \"H:/我的雲端硬碟/Homeworktracker/作業缺交追蹤 Setup 1.8.6.exe\")",
+      "Bash(cp \"C:/Users/HSPS/Desktop/homework-installer/作業缺交追蹤 Setup 1.8.6.exe.blockmap\" \"H:/我的雲端硬碟/Homeworktracker/作業缺交追蹤 Setup 1.8.6.exe.blockmap\")",
+      "Bash(ls C:/Users/HSPS/Desktop/homework-tracker/*.js)",
+      "Bash(npm version:*)",
+      "Bash(del \"C:\\\\Users\\\\HSPS\\\\Desktop\\\\homework-tracker\\\\google-token.json\")"
     ]
   }
 }
